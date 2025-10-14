@@ -1,0 +1,39 @@
+# Build outputs
+bin/
+obj/
+out/
+build/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider / JetBrains
+.idea/
+*.iml
+
+# VS Code
+.vscode/
+
+# NuGet
+*.nupkg
+*.snupkg
+*.nuspec
+packages/
+project.lock.json
+project.assets.json
+*.nuget.props
+*.nuget.targets
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.*
+
+# OS
+Thumbs.db
+.DS_Store
