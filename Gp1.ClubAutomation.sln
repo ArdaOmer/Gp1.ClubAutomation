@@ -3,6 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gp1.ClubAutomation.Api", "Gp1.ClubAutomation.Api\Gp1.ClubAutomation.Api.csproj", "{3BDED551-F938-4330-8934-74E2C003639C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{F89D9CD8-0D6A-4483-AE9E-CB2840A74FCF}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gp1.ClubAutomation.Domain", "Gp1.ClubAutomation.Domain\Gp1.ClubAutomation.Domain.csproj", "{384DC0D8-A2A5-40C9-BDAE-D37C7003D8E4}"
 EndProject

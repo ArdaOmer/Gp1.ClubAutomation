@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Gp1.ClubAutomation.Infrastructure")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2789c3111bab2dc780312270a9eabad1a184c1b8")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4112c694f16e16f98ce8cbd98e3d6a2a96178b3c")]
 [assembly: System.Reflection.AssemblyProductAttribute("Gp1.ClubAutomation.Infrastructure")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Gp1.ClubAutomation.Infrastructure")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

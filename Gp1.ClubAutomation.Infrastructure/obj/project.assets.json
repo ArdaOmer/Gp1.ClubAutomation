@@ -281,6 +281,16 @@
         "build": {
           "buildTransitive/net8.0/_._": {}
         }
+      },
+      "Gp1.ClubAutomation.Domain/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v8.0",
+        "compile": {
+          "bin/placeholder/Gp1.ClubAutomation.Domain.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/Gp1.ClubAutomation.Domain.dll": {}
+        }
       }
     }
   },
@@ -721,10 +731,16 @@
         "system.diagnostics.diagnosticsource.nuspec",
         "useSharedDesignerContext.txt"
       ]
+    },
+    "Gp1.ClubAutomation.Domain/1.0.0": {
+      "type": "project",
+      "path": "../Gp1.ClubAutomation.Domain/Gp1.ClubAutomation.Domain.csproj",
+      "msbuildProject": "../Gp1.ClubAutomation.Domain/Gp1.ClubAutomation.Domain.csproj"
     }
   },
   "projectFileDependencyGroups": {
     "net8.0": [
+      "Gp1.ClubAutomation.Domain >= 1.0.0",
       "Microsoft.EntityFrameworkCore >= 9.0.9",
       "Npgsql.EntityFrameworkCore.PostgreSQL >= 9.0.4"
     ]
@@ -753,13 +769,22 @@
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
-          "projectReferences": {}
+          "projectReferences": {
+            "C:\\Users\\ardao\\OneDrive\\Desktop\\Projects\\GRADUATION PROJECT 1\\Gp1.ClubAutomation\\Gp1.ClubAutomation.Domain\\Gp1.ClubAutomation.Domain.csproj": {
+              "projectPath": "C:\\Users\\ardao\\OneDrive\\Desktop\\Projects\\GRADUATION PROJECT 1\\Gp1.ClubAutomation\\Gp1.ClubAutomation.Domain\\Gp1.ClubAutomation.Domain.csproj"
+            }
+          }
         }
       },
       "warningProperties": {
         "warnAsError": [
           "NU1605"
         ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
       }
     },
     "frameworks": {
