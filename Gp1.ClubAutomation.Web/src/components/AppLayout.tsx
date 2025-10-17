@@ -8,6 +8,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <b>Kulüp Otomasyonu</b>
         <Link to="/">Home</Link>
         <Link to="/profile">Profilim</Link>
+        <Link to="/clubs">Kulüpler</Link>
         <div style={{flex:1}} />
         <button onClick={logout} style={{padding:"6px 10px",border:"1px solid #ddd",borderRadius:8,background:"#fff",cursor:"pointer"}}>Çıkış</button>
       </nav>
@@ -15,3 +16,4 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+<Link to="/clubs">Kulüpler</Link>
