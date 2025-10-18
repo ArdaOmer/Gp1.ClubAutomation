@@ -162,5 +162,22 @@ export function hasRole(user: User | null, clubId: string, role: "President" | "
   if (role === "Member") return true;
   return m.role === "President";
 }
+// ---- Profile (mock) ----
+import type { User } from "../types";
+
+export async function getMe(): Promise<User | null> {
+  await delay(200);
+  try { return JSON.parse(localStorage.getItem("user") || "null") as User | null; }
+  catch { return null; }
+}
+
+export async function updateMe(input: Partial<User>): Promise<User> {
+  await delay(300);
+  const curr = JSON.parse(localStorage.getItem("user") || "{}");
+  const next = { ...curr, ...input };
+  localStorage.setItem("user", JSON.stringify(next));
+  return next as User;
+}
+
 
 
