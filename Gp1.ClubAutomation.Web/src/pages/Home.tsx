@@ -1,4 +1,5 @@
 import { useToast } from "../components/Toast";
+import { downloadIcs } from "../lib/ics";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
@@ -407,14 +408,14 @@ function EventRow({ e, clubs, userId }: { e: EventItem; clubs: Club[]; userId: s
         push({ message: "Etkinliğe katılıyorsunuz ✅" });
       }
     } catch {
-    push({ message: "İşlem başarısız", type: "error" });
-    }finally {
+      push({ message: "İşlem başarısız", type: "error" });
+    } finally {
       setBusy(false);
     }
   }
 
   return (
-    <li style={{ border: "1px solid #eee", borderRadius: 10, padding: 12,boxShadow: "0 4px 16px rgba(0,0,0,.05)" }}>
+    <li style={{ border: "1px solid #eee", borderRadius: 10, padding: 12, boxShadow: "0 4px 16px rgba(0,0,0,.05)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <div>
           <div style={{ fontWeight: 700 }}>{e.title}</div>
@@ -423,8 +424,36 @@ function EventRow({ e, clubs, userId }: { e: EventItem; clubs: Club[]; userId: s
           </div>
           <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>{count} kişi katılıyor</div>
         </div>
+
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <ClubPill clubs={clubs} clubId={e.clubId} />
+
+          {/* Takvime Ekle (.ics) */}
+          <button
+            onClick={() =>
+              downloadIcs({
+                title: e.title,
+                description: e.description || "",
+                location: e.location || "",
+                startISO: e.startAt,
+                endISO: e.endAt,
+              })
+            }
+            style={{
+              padding: "6px 10px",
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              background: "#fff",
+              transition: "transform .05s ease",
+            }}
+            onMouseDown={(ev) => (ev.currentTarget.style.transform = "scale(0.98)")}
+            onMouseUp={(ev) => (ev.currentTarget.style.transform = "scale(1)")}
+            onMouseLeave={(ev) => (ev.currentTarget.style.transform = "scale(1)")}
+          >
+            Takvime Ekle
+          </button>
+
+          {/* RSVP (Katılıyorum/Vazgeç) */}
           <button
             onClick={onToggle}
             disabled={busy}
@@ -434,8 +463,12 @@ function EventRow({ e, clubs, userId }: { e: EventItem; clubs: Club[]; userId: s
               borderRadius: 8,
               background: attending ? "#e0f2fe" : "#fff",
               color: attending ? "#075985" : "inherit",
-              minWidth: 110
+              minWidth: 110,
+              transition: "transform .05s ease",
             }}
+            onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.98)")}
+            onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
           >
             {busy ? "..." : attending ? "Vazgeç" : "Katılıyorum"}
           </button>
@@ -444,6 +477,7 @@ function EventRow({ e, clubs, userId }: { e: EventItem; clubs: Club[]; userId: s
     </li>
   );
 }
+
 
 function StatCard({ title, value, loading, hint, to }: { title: string; value: number; loading?: boolean; hint?: string; to?: string }) {
   const body = (

@@ -9,6 +9,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <Link to="/">Home</Link>
         <Link to="/profile">Profilim</Link>
         <Link to="/clubs">Kulüpler</Link>
+        
+  
+        <Link to="/certificates" style={{ textDecoration:"none", padding:"6px 10px", border:"1px solid #ddd", borderRadius:8 }}>
+  Sertifikalar
+        </Link>
+
         <div style={{flex:1}} />
         <button onClick={logout} style={{padding:"6px 10px",border:"1px solid #ddd",borderRadius:8,background:"#fff",cursor:"pointer"}}>Çıkış</button>
       </nav>

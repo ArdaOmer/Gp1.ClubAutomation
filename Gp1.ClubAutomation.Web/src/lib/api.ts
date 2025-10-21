@@ -346,3 +346,9 @@ export async function unattendEvent(eventId: string, userId: string): Promise<nu
   writeAttendees(eventId, next);
   return next.length;
 }
+// Katıldığım tüm etkinlikleri getir
+export function getEventsIAttend(userId: string): EventItem[] {
+  const events = read<EventItem[]>(LS_EVENTS, []);
+  return events.filter(e => readAttendees(e.id).includes(userId));
+}
+

@@ -4,6 +4,7 @@ import Home from "./pages/Home";
 import Profile from "./pages/Profile";
 import Clubs from "./pages/Clubs";
 import ClubEvents from "./pages/ClubEvents";
+import Certificates from "./pages/Certificates";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import AppLayout from "./components/AppLayout";
 
@@ -11,10 +12,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public route */}
+        {/* Public */}
         <Route path="/login" element={<Login />} />
 
-        {/* Protected routes */}
+        {/* Protected */}
         <Route
           path="/"
           element={
@@ -58,7 +59,19 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/certificates"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Certificates />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
 }
+
