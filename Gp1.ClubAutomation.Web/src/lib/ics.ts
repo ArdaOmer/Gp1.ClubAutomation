@@ -1,4 +1,3 @@
-// src/lib/ics.ts
 export function downloadIcs(opts: {
   title: string;
   description?: string;
@@ -17,9 +16,9 @@ export function downloadIcs(opts: {
     "BEGIN:VEVENT",
     `DTSTART:${dt(opts.startISO)}`,
     `DTEND:${dt(opts.endISO)}`,
-    `SUMMARY:${escape(opts.title)}`,
-    opts.location ? `LOCATION:${escape(opts.location)}` : "",
-    opts.description ? `DESCRIPTION:${escape(opts.description)}` : "",
+    `SUMMARY:${escapeText(opts.title)}`,
+    opts.location ? `LOCATION:${escapeText(opts.location)}` : "",
+    opts.description ? `DESCRIPTION:${escapeText(opts.description)}` : "",
     "END:VEVENT",
     "END:VCALENDAR",
   ].filter(Boolean).join("\r\n");
@@ -35,6 +34,6 @@ export function downloadIcs(opts: {
   URL.revokeObjectURL(url);
 }
 
-function escape(s: string) {
+function escapeText(s: string) {
   return s.replace(/([,;])/g, "\\$1").replace(/\n/g, "\\n");
 }

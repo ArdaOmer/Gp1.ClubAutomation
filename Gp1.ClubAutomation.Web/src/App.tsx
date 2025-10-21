@@ -5,6 +5,7 @@ import Profile from "./pages/Profile";
 import Clubs from "./pages/Clubs";
 import ClubEvents from "./pages/ClubEvents";
 import Certificates from "./pages/Certificates";
+import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import AppLayout from "./components/AppLayout";
 
@@ -70,8 +71,19 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* 404 */}
+        <Route
+          path="*"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <NotFound />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
 }
-

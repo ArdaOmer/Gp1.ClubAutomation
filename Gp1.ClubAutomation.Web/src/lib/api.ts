@@ -351,4 +351,23 @@ export function getEventsIAttend(userId: string): EventItem[] {
   const events = read<EventItem[]>(LS_EVENTS, []);
   return events.filter(e => readAttendees(e.id).includes(userId));
 }
+export async function updateEvent(
+  clubId: string,
+  eventId: string,
+  patch: Partial<Pick<EventItem,"title"|"description"|"location"|"startAt"|"endAt">>
+): Promise<EventItem> {
+  if (useMock) {
+    await delay(120);
+    const list = read<EventItem[]>(LS_EVENTS, []);
+    const idx = list.findIndex(e => e.id === eventId && e.clubId === clubId);
+    if (idx === -1) throw new Error("Etkinlik bulunamadı");
+    const next = { ...list[idx], ...patch };
+    list[idx] = next;
+    write(LS_EVENTS, list);
+    return next;
+  }
+  const { data } = await api.patch<EventItem>(`/clubs/${clubId}/events/${eventId}`, patch);
+  return data;
+}
+
 

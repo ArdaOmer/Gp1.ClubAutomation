@@ -9,17 +9,13 @@ export default function Certificates() {
 
   const items = useMemo(() => {
     if (!user) return [];
-    try {
-      return getEventsIAttend(user.id);
-    } catch {
-      return [];
-    }
+    try { return getEventsIAttend(user.id); } catch { return []; }
   }, [user]);
 
   if (!user) return <div style={{ padding:16 }}>Giriş gerekli.</div>;
 
   function openCertificate(title: string, clubName: string, dateStr: string, userName: string) {
-  const html = `<!doctype html>
+    const html = `<!doctype html>
 <html><head><meta charset="utf-8" /><title>Sertifika</title>
 <style>
   body { margin:0; background:#f8fafc; font-family: Inter, Arial, sans-serif; }
@@ -51,13 +47,11 @@ export default function Certificates() {
   <script>window.print()</script>
 </body></html>`;
 
-  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  window.open(url, "_blank", "noopener,noreferrer,width=980,height=700");
-  // URL revoke'u, yeni pencerede yüklendikten bir süre sonra yapmak daha güvenli:
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-}
-
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer,width=980,height=700");
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+  }
 
   function clubName(id: string) {
     const c = clubsQ.data?.find(x => x.id === id);
