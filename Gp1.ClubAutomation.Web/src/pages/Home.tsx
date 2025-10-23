@@ -3,6 +3,7 @@ import { downloadIcs } from "../lib/ics";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../auth/AuthContext";
+import { useTheme } from "../theme/ThemeContext"; // 🌙 tema
 import {
   getClubs,
   getUpcomingEventsForUser,
@@ -18,19 +19,22 @@ import {
 } from "../lib/api";
 import { Link } from "react-router-dom";
 import type { Club, EventItem, Announcement } from "../types";
+import CampusFeed from "../components/CampusFeed";
+import CampusMap from "../components/CampusMap";
+
 
 
 
 export default function Home() {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const qc = useQueryClient();
   const { push } = useToast();
 
-
   // --- UI state ---
-  const [q, setQ] = useState("");                 // etkinlik arama
-  const [filterClub, setFilterClub] = useState<string>(""); // kulüp filtresi
-  const [days, setDays] = useState<number>(14);   // 7/14/30 gün
+  const [q, setQ] = useState("");
+  const [filterClub, setFilterClub] = useState<string>("");
+  const [days, setDays] = useState<number>(14);
   const [showAnnForm, setShowAnnForm] = useState(false);
 
   // --- Data: kulüpler ve üyelikler ---
@@ -50,7 +54,7 @@ export default function Home() {
     enabled: !!user,
   });
 
-  // --- Data: haftalık görünüm (her zaman 7 gün) ---
+  // --- Data: haftalık görünüm (7 gün) ---
   const weeklyQ = useQuery({
     queryKey: ["upcoming7", user?.id],
     queryFn: () => getUpcomingEventsForUser(user!.id, 7),
@@ -84,15 +88,15 @@ export default function Home() {
   const createAnn = useMutation({
     mutationFn: () => createAnnouncement(annClub, { title: annTitle, content: annContent, pinned: annPinned }),
     onSuccess: () => {
-    setAnnTitle(""); setAnnContent(""); setAnnPinned(false);
-    qc.invalidateQueries({ queryKey: annKey as any });
-    setShowAnnForm(false);
-    push({ message: "Duyuru yayınlandı ✅" }); // <-- EKLEDİK
-  },
-  onError: () => {
-    push({ message: "Duyuru yayınlanamadı", type: "error" }); // (opsiyonel)
-  }
-});
+      setAnnTitle(""); setAnnContent(""); setAnnPinned(false);
+      qc.invalidateQueries({ queryKey: annKey as any });
+      setShowAnnForm(false);
+      push({ message: "Duyuru yayınlandı ✅" });
+    },
+    onError: () => {
+      push({ message: "Duyuru yayınlanamadı", type: "error" });
+    }
+  });
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, []);
   if (!user) return <div style={{ padding: 16 }}>Giriş gerekli.</div>;
@@ -101,7 +105,7 @@ export default function Home() {
     return (clubsQ.data ?? []).filter((c) => myClubIds.has(c.id));
   }, [clubsQ.data, myClubIds]);
 
-  // --- Filtreler: arama + kulüp ---
+  // --- Filtreler ---
   const upcomingFiltered: EventItem[] = useMemo(() => {
     const base = upcomingQ.data ?? [];
     const term = q.trim().toLowerCase();
@@ -129,28 +133,45 @@ export default function Home() {
 
   const todayLabel = new Date().toLocaleDateString(undefined, { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
 
+  // --- Kart stili ---
+  const cardStyle: React.CSSProperties = {
+    background: theme === "dark" ? "#1f2937" : "#fff",
+    border: theme === "dark" ? "1px solid #374151" : "1px solid #eee",
+    borderRadius: 12,
+    boxShadow: theme === "dark" ? "0 2px 6px rgba(0,0,0,.3)" : "0 2px 8px rgba(0,0,0,.05)",
+    padding: 16,
+    transition: "all .3s ease",
+  };
+
   return (
-    <div style={{ padding: 16, display: "grid", gap: 16 }}>
+    <div style={{
+      padding: 24,
+      display: "grid",
+      gap: 20,
+      background: theme === "dark" ? "#111827" : "#f9fafb",
+      color: theme === "dark" ? "#e5e7eb" : "#111",
+      minHeight: "100vh",
+      transition: "background .3s,color .3s"
+    }}>
       {/* Başlık + tarih + kısayollar */}
       <header style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "grid" }}>
-          <div style={{ fontSize: 18 }}>Hoş geldin, <b>{user.name || user.email}</b> 👋</div>
-          <div style={{ fontSize: 12, color: "#666" }}>{todayLabel}</div>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>👋 Hoş geldin, {user.name || user.email}</div>
+          <div style={{ fontSize: 13, color: theme === "dark" ? "#9ca3af" : "#555" }}>{todayLabel}</div>
         </div>
         <div style={{ flex: 1 }} />
-        <Link to="/profile" style={{ padding: "8px 12px", border: "1px solid #ddd", borderRadius: 8, textDecoration: "none" }}>
-          Profilim
-        </Link>
-        <Link to="/clubs" style={{ padding: "8px 12px", border: "1px solid #ddd", borderRadius: 8, textDecoration: "none" }}>
-          Kulüpler
-        </Link>
+        <Link to="/profile" style={navBtn(theme)}>Profilim</Link>
+        <Link to="/clubs" style={navBtn(theme)}>Kulüpler</Link>
       </header>
+      {/* === Kampüs Akışı === */}
+<CampusFeed userId={user.id} myClubIds={Array.from(myClubIds.values())} />
+
 
       {/* Hızlı istatistik kartları */}
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
-        <StatCard title="Kulüplerim" value={myClubs.length} loading={clubsQ.isLoading} hint="Üye olduğun kulüp sayısı" to="/clubs" />
-        <StatCard title={`Yaklaşan Etkinlik (${days}g)`} value={upcomingQ.data?.length ?? 0} loading={upcomingQ.isLoading} hint={`${days} gün içinde`} />
-        <StatCard title="Duyurular" value={annsQ.data?.length ?? 0} loading={annsQ.isLoading} hint="Kulüplerinden gelen" />
+      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
+        <StatCard title="Kulüplerim" value={myClubs.length} loading={clubsQ.isLoading} hint="Üye olduğun kulüpler" to="/clubs" theme={theme}/>
+        <StatCard title={`Yaklaşan Etkinlik (${days}g)`} value={upcomingQ.data?.length ?? 0} loading={upcomingQ.isLoading} hint={`${days} gün içinde`} theme={theme}/>
+        <StatCard title="Duyurular" value={annsQ.data?.length ?? 0} loading={annsQ.isLoading} hint="Kulüplerinden gelen" theme={theme}/>
       </section>
 
       {/* Filtreler */}
@@ -159,12 +180,12 @@ export default function Home() {
           placeholder="Etkinliklerde ara (başlık/konum)…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8 }}
+          style={input(theme)}
         />
         <select
           value={filterClub}
           onChange={(e) => setFilterClub(e.target.value)}
-          style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8, background: "#fff" }}
+          style={input(theme)}
         >
           <option value="">Tüm Kulüpler</option>
           {myClubs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -172,7 +193,7 @@ export default function Home() {
         <select
           value={String(days)}
           onChange={(e) => setDays(parseInt(e.target.value))}
-          style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8, background: "#fff" }}
+          style={input(theme)}
         >
           <option value="7">7 gün</option>
           <option value="14">14 gün</option>
@@ -182,20 +203,20 @@ export default function Home() {
 
       {/* Hızlı aksiyonlar — yalnızca BAŞKAN */}
       {myPresidentClubIds.length > 0 && (
-        <section style={{ border: "1px solid #eee", borderRadius: 12, padding: 12 }}>
+        <section style={cardStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <strong>Hızlı Aksiyonlar</strong>
-            <span style={{ fontSize: 12, color: "#666" }}>(yalnızca kulüp başkanları)</span>
+            <strong>⚙️ Hızlı Aksiyonlar</strong>
+            <span style={{ fontSize: 12, color: theme === "dark" ? "#9ca3af" : "#666" }}>(yalnızca kulüp başkanları)</span>
             <div style={{ flex: 1 }} />
             <Link
               to={`/clubs/${myPresidentClubIds[0]}/events`}
-              style={{ textDecoration: "none", padding: "6px 10px", border: "1px solid #ddd", borderRadius: 8 }}
+              style={btn(theme)}
             >
               Yeni Etkinlik Oluştur
             </Link>
             <button
               onClick={() => setShowAnnForm(s => !s)}
-              style={{ padding: "6px 10px", border: "1px solid #ddd", borderRadius: 8, background: "#fff" }}
+              style={btn(theme)}
             >
               {showAnnForm ? "İptal" : "Duyuru Yayınla"}
             </button>
@@ -203,27 +224,30 @@ export default function Home() {
 
           {showAnnForm && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 8 }}>
-              {myPresidentClubIds.length > 1 && (
+              {myPresidentClubIds.length > 1 ? (
                 <select
                   value={annClub}
                   onChange={(e) => setAnnClub(e.target.value)}
-                  style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8, background: "#fff" }}
+                  style={input(theme)}
                 >
                   {myPresidentClubIds.map((cid) => {
                     const name = clubsQ.data?.find(c => c.id === cid)?.name || "Kulüp";
                     return <option key={cid} value={cid}>{name}</option>;
                   })}
                 </select>
+              ) : (
+                <input
+                  readOnly
+                  value={clubsQ.data?.find(c => c.id === myPresidentClubIds[0])?.name || "Kulüp"}
+                  style={{ ...input(theme), background: theme === "dark" ? "#0b1220" : "#fafafa" }}
+                />
               )}
-              {myPresidentClubIds.length === 1 && (
-                <input readOnly value={clubsQ.data?.find(c => c.id === myPresidentClubIds[0])?.name || "Kulüp"}
-                       style={{ padding: 10, border: "1px solid #eee", borderRadius: 8, background: "#fafafa" }} />
-              )}
+
               <input
                 placeholder="Duyuru başlığı"
                 value={annTitle}
                 onChange={(e) => setAnnTitle(e.target.value)}
-                style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8 }}
+                style={input(theme)}
               />
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
                 <input type="checkbox" checked={annPinned} onChange={(e) => setAnnPinned(e.target.checked)} />
@@ -234,13 +258,13 @@ export default function Home() {
                 value={annContent}
                 onChange={(e) => setAnnContent(e.target.value)}
                 rows={3}
-                style={{ gridColumn: "1 / -1", padding: 10, border: "1px solid #ddd", borderRadius: 8, resize: "vertical" }}
+                style={{ ...input(theme), resize: "vertical", gridColumn: "1 / -1" }}
               />
               <div style={{ gridColumn: "1 / -1" }}>
                 <button
                   onClick={() => createAnn.mutate()}
                   disabled={(!annClub && myPresidentClubIds.length > 1) || !annTitle || createAnn.isPending}
-                  style={{ padding: "8px 12px", border: "none", borderRadius: 8, background: "#3b82f6", color: "#fff" }}
+                  style={mainBtn(theme)}
                 >
                   {createAnn.isPending ? "Yayınlanıyor..." : "Yayınla"}
                 </button>
@@ -251,12 +275,12 @@ export default function Home() {
       )}
 
       {/* Yaklaşan etkinlikler */}
-      <section>
-        <h3 style={{ margin: "8px 0" }}>Yaklaşan Etkinlikler</h3>
+      <section style={cardStyle}>
+        <h3 style={{ marginTop: 0 }}>📅 Yaklaşan Etkinlikler</h3>
         {upcomingQ.isLoading ? (
           <div>Yükleniyor…</div>
         ) : upcomingFiltered.length === 0 ? (
-          <Empty text={q || filterClub ? "Filtrelere uygun etkinlik bulunamadı." : "Yaklaşan etkinlik bulunmuyor."} />
+          <Empty text={q || filterClub ? "Filtrelere uygun etkinlik bulunamadı." : "Yaklaşan etkinlik bulunmuyor."} theme={theme}/>
         ) : (
           <ul style={{ display: "grid", gap: 8, listStyle: "none", padding: 0 }}>
             {upcomingFiltered.map((e) => (
@@ -265,32 +289,47 @@ export default function Home() {
           </ul>
         )}
       </section>
+      {/* === Kampüs Haritası === */}
+<CampusMap userId={user.id} />
+
 
       {/* Duyurular — düzenle/sil başkana */}
-      <section>
-        <h3 style={{ margin: "8px 0" }}>Duyurular</h3>
+      <section style={cardStyle}>
+        <h3 style={{ marginTop: 0 }}>📢 Duyurular</h3>
         {annsQ.isLoading ? (
           <div>Yükleniyor…</div>
         ) : (annsQ.data?.length ?? 0) === 0 ? (
-          <Empty text="Kulüplerinden duyuru bulunmuyor." />
+          <Empty text="Kulüplerinden duyuru bulunmuyor." theme={theme}/>
         ) : (
           <ul style={{ display: "grid", gap: 8, listStyle: "none", padding: 0 }}>
             {(annsQ.data as Announcement[]).map((a) => {
               const isPresidentHere = myPresidentClubIds.includes(a.clubId);
               return (
-                <li key={a.id} style={{ border: "1px solid #eee", borderRadius: 10, padding: 12, boxShadow: "0 4px 16px rgba(0,0,0,.05)" }}>
+                <li key={a.id} style={{ ...rowCard(theme) }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "start", flexWrap: "wrap" }}>
                     <div>
                       <div style={{ fontWeight: 700 }}>
-                        {a.title} {a.pinned && <span style={{ fontSize: 11, color: "#b91c1c", marginLeft: 6, border: "1px solid #fca5a5", padding: "2px 6px", borderRadius: 999 }}>Sabit</span>}
+                        {a.title}{" "}
+                        {a.pinned && (
+                          <span style={{
+                            fontSize: 11,
+                            color: "#b91c1c",
+                            marginLeft: 6,
+                            border: "1px solid #fca5a5",
+                            padding: "2px 6px",
+                            borderRadius: 999
+                          }}>
+                            Sabit
+                          </span>
+                        )}
                       </div>
-                      <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>
+                      <div style={{ fontSize: 12, color: theme === "dark" ? "#9ca3af" : "#666", marginTop: 2 }}>
                         {formatDateTime(a.createdAt)}
                       </div>
                       {a.content && <div style={{ fontSize: 14, marginTop: 8 }}>{a.content}</div>}
                     </div>
                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                      <ClubPill clubs={clubsQ.data ?? []} clubId={a.clubId} />
+                      <ClubPill clubs={clubsQ.data ?? []} clubId={a.clubId} theme={theme}/>
                       {isPresidentHere && (
                         <>
                           <button
@@ -299,9 +338,9 @@ export default function Home() {
                               if (!title) return;
                               await updateAnnouncement(a.id, { title });
                               qc.invalidateQueries({ queryKey: annKey as any });
-                               push({ message: "Duyuru güncellendi ✅" });
+                              push({ message: "Duyuru güncellendi ✅" });
                             }}
-                            style={{ padding: "6px 10px", border: "1px solid #ddd", borderRadius: 8, background: "#fff" }}
+                            style={btn(theme)}
                           >
                             Düzenle
                           </button>
@@ -310,9 +349,9 @@ export default function Home() {
                               if (!window.confirm("Bu duyuruyu silmek istiyor musun?")) return;
                               await deleteAnnouncement(a.id);
                               qc.invalidateQueries({ queryKey: annKey as any });
-                               push({ message: "Duyuru silindi", type: "info" });
+                              push({ message: "Duyuru silindi", type: "info" });
                             }}
-                            style={{ padding: "6px 10px", border: "1px solid #ddd", borderRadius: 8, background: "#fff", color: "#b91c1c" }}
+                            style={{ ...btn(theme), color: "#b91c1c" }}
                           >
                             Sil
                           </button>
@@ -328,27 +367,27 @@ export default function Home() {
       </section>
 
       {/* Bu Hafta */}
-      <section>
-        <h3 style={{ margin: "8px 0" }}>Bu Hafta</h3>
+      <section style={cardStyle}>
+        <h3 style={{ marginTop: 0 }}>🗓 Bu Hafta</h3>
         {weeklyQ.isLoading ? (
           <div>Yükleniyor…</div>
         ) : weeklyGrouped.length === 0 ? (
-          <Empty text="Önümüzdeki 7 gün içinde etkinlik yok." />
+          <Empty text="Önümüzdeki 7 gün içinde etkinlik yok." theme={theme}/>
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
             {weeklyGrouped.map(([dateLabel, items]) => (
-              <div key={dateLabel} style={{ border: "1px solid #eee", borderRadius: 10, padding: 12 }}>
+              <div key={dateLabel} style={{ border: theme === "dark" ? "1px solid #374151" : "1px solid #eee", borderRadius: 10, padding: 12 }}>
                 <div style={{ fontWeight: 700, marginBottom: 8 }}>{dateLabel}</div>
                 <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 6 }}>
                   {items.map((e) => (
                     <li key={e.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                       <div>
                         <div style={{ fontWeight: 600 }}>{e.title}</div>
-                        <div style={{ fontSize: 12, color: "#666" }}>
+                        <div style={{ fontSize: 12, color: theme === "dark" ? "#9ca3af" : "#666" }}>
                           {formatTime(e.startAt)} – {formatTime(e.endAt)} {e.location ? `| ${e.location}` : ""}
                         </div>
                       </div>
-                      <ClubPill clubs={clubsQ.data ?? []} clubId={e.clubId} />
+                      <ClubPill clubs={clubsQ.data ?? []} clubId={e.clubId} theme={theme}/>
                     </li>
                   ))}
                 </ul>
@@ -359,21 +398,21 @@ export default function Home() {
       </section>
 
       {/* Kulüplerim */}
-      <section>
-        <h3 style={{ margin: "8px 0" }}>Kulüplerim</h3>
+      <section style={cardStyle}>
+        <h3 style={{ marginTop: 0 }}>🏛 Kulüplerim</h3>
         {clubsQ.isLoading ? (
           <div>Yükleniyor…</div>
         ) : myClubs.length === 0 ? (
-          <Empty text="Herhangi bir kulübe üye değilsin. Kulüpler sayfasından katılabilirsin." />
+          <Empty text="Herhangi bir kulübe üye değilsin. Kulüpler sayfasından katılabilirsin." theme={theme}/>
         ) : (
           <ul style={{ display: "grid", gap: 8, listStyle: "none", padding: 0 }}>
             {myClubs.map((c) => (
-              <li key={c.id} style={{ border: "1px solid #eee", borderRadius: 10, padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center", boxShadow: "0 4px 16px rgba(0,0,0,.05)"  }}>
+              <li key={c.id} style={{ ...rowCard(theme), display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <div style={{ fontWeight: 600 }}>{c.name}</div>
-                  <div style={{ fontSize: 13, color: "#555" }}>{c.description || "—"}</div>
+                  <div style={{ fontSize: 13, color: theme === "dark" ? "#9ca3af" : "#555" }}>{c.description || "—"}</div>
                 </div>
-                <Link to={`/clubs/${c.id}/events`} style={{ textDecoration: "none", padding: "6px 10px", border: "1px solid #ddd", borderRadius: 8 }}>
+                <Link to={`/clubs/${c.id}/events`} style={btn(theme)}>
                   Etkinlikler
                 </Link>
               </li>
@@ -385,7 +424,42 @@ export default function Home() {
   );
 }
 
-// === Bileşenler ===
+/* === Yardımcı stiller === */
+const navBtn = (theme: "light" | "dark" | string) => ({
+  padding: "8px 12px",
+  border: theme === "dark" ? "1px solid #374151" : "1px solid #ddd",
+  borderRadius: 8,
+  background: theme === "dark" ? "#1f2937" : "#fff",
+  color: theme === "dark" ? "#e5e7eb" : "#111",
+  textDecoration: "none",
+  transition: "all .2s ease",
+});
+const input = (theme: "light" | "dark" | string) => ({
+  padding: 10,
+  border: theme === "dark" ? "1px solid #374151" : "1px solid #ddd",
+  borderRadius: 8,
+  background: theme === "dark" ? "#111827" : "#fff",
+  color: theme === "dark" ? "#e5e7eb" : "#111",
+});
+const btn = (theme: "light" | "dark" | string) => ({
+  padding: "6px 10px",
+  borderRadius: 8,
+  border: theme === "dark" ? "1px solid #374151" : "1px solid #ddd",
+  background: theme === "dark" ? "#1f2937" : "#fff",
+  color: theme === "dark" ? "#e5e7eb" : "#111",
+  cursor: "pointer",
+  textDecoration: "none",
+});
+const mainBtn = (theme: "light" | "dark" | string) => ({
+  padding: "8px 12px",
+  borderRadius: 8,
+  border: "none",
+  background: theme === "dark" ? "#2563eb" : "#3b82f6",
+  color: "#fff",
+  cursor: "pointer",
+});
+
+/* === Bileşenler === */
 
 function EventRow({ e, clubs, userId }: { e: EventItem; clubs: Club[]; userId: string }) {
   const { push } = useToast();
@@ -415,7 +489,7 @@ function EventRow({ e, clubs, userId }: { e: EventItem; clubs: Club[]; userId: s
   }
 
   return (
-    <li style={{ border: "1px solid #eee", borderRadius: 10, padding: 12, boxShadow: "0 4px 16px rgba(0,0,0,.05)" }}>
+    <li style={rowCard()}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <div>
           <div style={{ fontWeight: 700 }}>{e.title}</div>
@@ -439,36 +513,21 @@ function EventRow({ e, clubs, userId }: { e: EventItem; clubs: Club[]; userId: s
                 endISO: e.endAt,
               })
             }
-            style={{
-              padding: "6px 10px",
-              border: "1px solid #ddd",
-              borderRadius: 8,
-              background: "#fff",
-              transition: "transform .05s ease",
-            }}
-            onMouseDown={(ev) => (ev.currentTarget.style.transform = "scale(0.98)")}
-            onMouseUp={(ev) => (ev.currentTarget.style.transform = "scale(1)")}
-            onMouseLeave={(ev) => (ev.currentTarget.style.transform = "scale(1)")}
+            style={{ ...btn("light"), borderColor: "#ddd" }}
           >
             Takvime Ekle
           </button>
 
-          {/* RSVP (Katılıyorum/Vazgeç) */}
+          {/* RSVP */}
           <button
             onClick={onToggle}
             disabled={busy}
             style={{
-              padding: "6px 10px",
-              border: "1px solid #ddd",
-              borderRadius: 8,
+              ...btn("light"),
               background: attending ? "#e0f2fe" : "#fff",
               color: attending ? "#075985" : "inherit",
               minWidth: 110,
-              transition: "transform .05s ease",
             }}
-            onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.98)")}
-            onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
-            onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
           >
             {busy ? "..." : attending ? "Vazgeç" : "Katılıyorum"}
           </button>
@@ -478,13 +537,20 @@ function EventRow({ e, clubs, userId }: { e: EventItem; clubs: Club[]; userId: s
   );
 }
 
-
-function StatCard({ title, value, loading, hint, to }: { title: string; value: number; loading?: boolean; hint?: string; to?: string }) {
+function StatCard({
+  title, value, loading, hint, to, theme,
+}: { title: string; value: number; loading?: boolean; hint?: string; to?: string; theme: "light" | "dark" | string }) {
   const body = (
-    <div style={{ border: "1px solid #eee", borderRadius: 12, padding: 16 }}>
-      <div style={{ fontSize: 13, color: "#666", marginBottom: 4 }}>{title}</div>
+    <div style={{
+      border: theme === "dark" ? "1px solid #374151" : "1px solid #eee",
+      borderRadius: 12,
+      padding: 16,
+      background: theme === "dark" ? "#1f2937" : "#fff",
+      boxShadow: theme === "dark" ? "0 2px 6px rgba(0,0,0,.3)" : "0 2px 8px rgba(0,0,0,.05)",
+    }}>
+      <div style={{ fontSize: 13, color: theme === "dark" ? "#9ca3af" : "#666", marginBottom: 4 }}>{title}</div>
       <div style={{ fontSize: 28, fontWeight: 800, lineHeight: 1 }}>{loading ? "…" : value}</div>
-      {hint && <div style={{ fontSize: 12, color: "#888", marginTop: 6 }}>{hint}</div>}
+      {hint && <div style={{ fontSize: 12, color: theme === "dark" ? "#9ca3af" : "#888", marginTop: 6 }}>{hint}</div>}
     </div>
   );
   if (to) {
@@ -497,9 +563,15 @@ function StatCard({ title, value, loading, hint, to }: { title: string; value: n
   return body;
 }
 
-function Empty({ text }: { text: string }) {
+function Empty({ text, theme = "light" }: { text: string; theme?: "light" | "dark" | string }) {
   return (
-    <div style={{ border: "1px dashed #ddd", borderRadius: 12, padding: 16, color: "#666", fontSize: 14 }}>
+    <div style={{
+      border: theme === "dark" ? "1px dashed #374151" : "1px dashed #ddd",
+      borderRadius: 12,
+      padding: 16,
+      color: theme === "dark" ? "#9ca3af" : "#666",
+      fontSize: 14
+    }}>
       {text}
     </div>
   );
@@ -515,7 +587,7 @@ function clubEmoji(name?: string) {
   return "🏷️";
 }
 
-function ClubPill({ clubs, clubId }: { clubs: Club[]; clubId: string }) {
+function ClubPill({ clubs, clubId, theme = "light" }: { clubs: Club[]; clubId: string; theme?: "light" | "dark" | string }) {
   const club = clubs.find((c) => c.id === clubId);
   const name = club?.name || "Kulüp";
   return (
@@ -524,10 +596,10 @@ function ClubPill({ clubs, clubId }: { clubs: Club[]; clubId: string }) {
       style={{
         textDecoration: "none",
         padding: "6px 10px",
-        border: "1px solid #ddd",
+        border: theme === "dark" ? "1px solid #374151" : "1px solid #ddd",
         borderRadius: 999,
         fontSize: 12,
-        background: "#f8fafc",
+        background: theme === "dark" ? "#0b1220" : "#f8fafc",
         display: "inline-flex",
         alignItems: "center",
         gap: 6
@@ -539,6 +611,15 @@ function ClubPill({ clubs, clubId }: { clubs: Club[]; clubId: string }) {
   );
 }
 
+function rowCard(theme: "light" | "dark" | string = "light"): React.CSSProperties {
+  return {
+    border: theme === "dark" ? "1px solid #374151" : "1px solid #eee",
+    borderRadius: 10,
+    padding: 12,
+    boxShadow: theme === "dark" ? "0 2px 6px rgba(0,0,0,.25)" : "0 4px 16px rgba(0,0,0,.05)",
+    background: theme === "dark" ? "#1f2937" : "#fff",
+  };
+}
 
 function formatDateTime(iso: string) {
   const d = new Date(iso);

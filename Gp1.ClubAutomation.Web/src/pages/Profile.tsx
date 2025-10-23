@@ -3,6 +3,24 @@ import { useAuth } from "../auth/AuthContext";
 import { getMyMemberships, updateMe, getClubs } from "../lib/api";
 import { useQuery } from "@tanstack/react-query";
 
+/* === İSİM DOĞRULAMA ===
+   Türkçe harfler (A–Z + ÇĞİÖŞÜ çğıöşü), boşluk, tire (-) ve tipografik apostrof (’) serbest.
+   2–50 karakter arası. Rakam ve diğer semboller yok.
+*/
+const NAME_PATTERN = /^[A-Za-zÇĞİÖŞÜçğıöşü\s'-]{2,50}$/u;
+
+function normalizeName(raw: string) {
+  return raw
+    .trim()
+    .replace(/\s+/g, " ")     // birden fazla boşluk -> tek boşluk
+    .replace(/\s*-\s*/g, "-") // - çevresindeki boşlukları kaldır
+    .replace(/\s*'\s*/g, "’"); // düz apostrof -> tipografik ’
+}
+
+function isValidName(v: string) {
+  return NAME_PATTERN.test(v);
+}
+
 function readFileAsDataURL(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -15,6 +33,8 @@ function readFileAsDataURL(file: File): Promise<string> {
 export default function Profile() {
   const { user, updateUser } = useAuth();
   const [name, setName] = useState(user?.name ?? "");
+  const [nameError, setNameError] = useState<string | null>(null);
+
   const [department, setDepartment] = useState(user?.department ?? "");
   const [grade, setGrade] = useState<number | "">((user?.grade as number) ?? "");
   const [birthDate, setBirthDate] = useState(user?.birthDate ?? "");
@@ -50,8 +70,8 @@ export default function Profile() {
     return map;
   }, [clubsQ.data]);
 
-  // --- Basit doğrulamalar ---
-  const nameValid = name.trim().length >= 3;
+  // --- Basit doğrulamalar (isim doğrulaması regex ile) ---
+  const nameValid = isValidName(normalizeName(name));
   const gradeValid = grade === "" || (typeof grade === "number" && grade >= 1 && grade <= 6);
   const birthValid = !birthDate || new Date(birthDate) <= new Date();
   const phoneValid = !phone || /^\+?90?5\d{9}$/.test(phone.replace(/\s+/g, ""));
@@ -60,15 +80,28 @@ export default function Profile() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setErrMsg(null);
+
+    // İSİM: normalize + son kontrol
+    const n = normalizeName(name);
+    setName(n);
+    if (!isValidName(n)) {
+      setNameError("Sadece harfler, boşluk, - ve ’ kullanılabilir (2–50 karakter).");
+      setErrMsg("Lütfen formu kontrol edin.");
+      return;
+    } else {
+      setNameError(null);
+    }
+
     if (!formValid) {
       setErrMsg("Lütfen formu kontrol edin.");
       return;
     }
+
     setSaving(true);
     setMsg(null);
     try {
       const payload = {
-        name: name.trim(),
+        name: n,
         department: department?.trim() || undefined,
         grade: typeof grade === "number" ? grade : undefined,
         birthDate: birthDate || undefined,
@@ -181,12 +214,33 @@ export default function Profile() {
           <span>Ad Soyad</span>
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8 }}
-            placeholder="Ad Soyad"
+            onChange={(e) => {
+              const v = e.target.value;
+              setName(v);
+              if (v.length === 0) {
+                setNameError("İsim zorunludur.");
+              } else if (!isValidName(normalizeName(v))) {
+                setNameError("Sadece harfler, boşluk, - ve ’ kullanılabilir (2–50 karakter).");
+              } else {
+                setNameError(null);
+              }
+            }}
+            onBlur={() => {
+              const n = normalizeName(name);
+              setName(n);
+              if (!isValidName(n)) {
+                setNameError("Lütfen geçerli bir isim girin (sadece harfler, boşluk, - ve ’).");
+              } else {
+                setNameError(null);
+              }
+            }}
+            style={{ padding: 10, border: `1px solid ${nameError ? "#ef4444" : "#ddd"}`, borderRadius: 8 }}
+            placeholder="Örn: Ömer"
             required
+            inputMode="text"
+            autoComplete="name"
           />
-          {!nameValid && <span style={{ color: "#b91c1c", fontSize: 12 }}>En az 3 karakter olmalı.</span>}
+          {nameError && <span style={{ color: "#b91c1c", fontSize: 12 }}>{nameError}</span>}
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
@@ -215,7 +269,7 @@ export default function Profile() {
             onChange={(e) => setGrade(e.target.value ? parseInt(e.target.value) : "")}
             style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8, background: "#fff" }}
           >
-           <option value="">Seçilmedi</option>
+            <option value="">Seçilmedi</option>
             <option value="1">1. Sınıf</option>
             <option value="2">2. Sınıf</option>
             <option value="3">3. Sınıf</option>
@@ -230,7 +284,7 @@ export default function Profile() {
 
         <label style={{ display: "grid", gap: 6 }}>
           <span>Doğum Tarihi</span>
-          <input
+        <input
             type="date"
             value={birthDate || ""}
             onChange={(e) => setBirthDate(e.target.value)}
