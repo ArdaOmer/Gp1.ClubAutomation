@@ -144,135 +144,386 @@ export default function Home() {
   };
 
   return (
-    <div style={{
-      padding: 24,
-      display: "grid",
-      gap: 20,
-      background: theme === "dark" ? "#111827" : "#f9fafb",
-      color: theme === "dark" ? "#e5e7eb" : "#111",
-      minHeight: "100vh",
-      transition: "background .3s,color .3s"
-    }}>
-      {/* Başlık + tarih + kısayollar */}
-      <header style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>👋 Hoş geldin, {user.name || user.email}</div>
-          <div style={{ fontSize: 13, color: theme === "dark" ? "#9ca3af" : "#555" }}>{todayLabel}</div>
+  <div style={{ padding: 16, display: "grid", gap: 16 }}>
+
+    {/* === HERO / HEADER BÖLÜMÜ === */}
+    <div
+      style={{
+        borderRadius: 16,
+        padding: "16px 20px",
+        background:
+          "linear-gradient(135deg, rgba(59,130,246,1) 0%, rgba(147,51,234,1) 100%)",
+        color: "#fff",
+        boxShadow: "0 24px 60px rgba(0,0,0,.25)",
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "flex-start",
+        gap: 16,
+        minHeight: 140,
+      }}
+    >
+      {/* Sol taraf: karşılama metni */}
+      <div style={{ flex: "1 1 220px", minWidth: 200 }}>
+        <div
+          style={{
+            fontSize: 13,
+            opacity: 0.9,
+            fontWeight: 500,
+          }}
+        >
+          {todayLabel}
         </div>
-        <div style={{ flex: 1 }} />
-        <Link to="/profile" style={navBtn(theme)}>Profilim</Link>
-        <Link to="/clubs" style={navBtn(theme)}>Kulüpler</Link>
-      </header>
-      {/* === Kampüs Akışı === */}
-<CampusFeed userId={user.id} myClubIds={Array.from(myClubIds.values())} />
 
-
-      {/* Hızlı istatistik kartları */}
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-        <StatCard title="Kulüplerim" value={myClubs.length} loading={clubsQ.isLoading} hint="Üye olduğun kulüpler" to="/clubs" theme={theme}/>
-        <StatCard title={`Yaklaşan Etkinlik (${days}g)`} value={upcomingQ.data?.length ?? 0} loading={upcomingQ.isLoading} hint={`${days} gün içinde`} theme={theme}/>
-        <StatCard title="Duyurular" value={annsQ.data?.length ?? 0} loading={annsQ.isLoading} hint="Kulüplerinden gelen" theme={theme}/>
-      </section>
-
-      {/* Filtreler */}
-      <section style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 8 }}>
-        <input
-          placeholder="Etkinliklerde ara (başlık/konum)…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          style={input(theme)}
-        />
-        <select
-          value={filterClub}
-          onChange={(e) => setFilterClub(e.target.value)}
-          style={input(theme)}
+        <div
+          style={{
+            fontSize: 20,
+            fontWeight: 700,
+            lineHeight: 1.3,
+            marginTop: 4,
+          }}
         >
-          <option value="">Tüm Kulüpler</option>
-          {myClubs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select
-          value={String(days)}
-          onChange={(e) => setDays(parseInt(e.target.value))}
-          style={input(theme)}
-        >
-          <option value="7">7 gün</option>
-          <option value="14">14 gün</option>
-          <option value="30">30 gün</option>
-        </select>
-      </section>
+          Hoş geldin,{" "}
+          <span style={{ fontWeight: 800 }}>
+            {user.name || user.email}
+          </span>{" "}
+          👋
+        </div>
 
-      {/* Hızlı aksiyonlar — yalnızca BAŞKAN */}
-      {myPresidentClubIds.length > 0 && (
-        <section style={cardStyle}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <strong>⚙️ Hızlı Aksiyonlar</strong>
-            <span style={{ fontSize: 12, color: theme === "dark" ? "#9ca3af" : "#666" }}>(yalnızca kulüp başkanları)</span>
-            <div style={{ flex: 1 }} />
-            <Link
-              to={`/clubs/${myPresidentClubIds[0]}/events`}
-              style={btn(theme)}
-            >
-              Yeni Etkinlik Oluştur
-            </Link>
-            <button
-              onClick={() => setShowAnnForm(s => !s)}
-              style={btn(theme)}
-            >
-              {showAnnForm ? "İptal" : "Duyuru Yayınla"}
-            </button>
+        <div
+          style={{
+            fontSize: 13,
+            opacity: 0.9,
+            marginTop: 8,
+            lineHeight: 1.4,
+            maxWidth: 360,
+          }}
+        >
+          Bugün neler oluyor? Katılabileceğin etkinlikleri ve kulüplerinden
+          gelen son duyuruları burada seni bekliyor!
+        </div>
+      </div>
+
+      {/* Sağ taraf: hızlı istatistikler */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3,minmax(0,1fr))",
+          gap: 8,
+          flex: "1 1 260px",
+          minWidth: 240,
+          maxWidth: 400,
+        }}
+      >
+        {/* Kart 1: Kulüplerim */}
+        <div
+          style={{
+            background: "rgba(255,255,255,.12)",
+            border: "1px solid rgba(255,255,255,.3)",
+            borderRadius: 12,
+            padding: "10px 12px",
+            minHeight: 70,
+            display: "grid",
+          }}
+        >
+          <div style={{ fontSize: 12, opacity: 0.9 }}>Kulüplerim</div>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              lineHeight: 1,
+            }}
+          >
+            {myClubs.length}
           </div>
+          <div
+            style={{
+              fontSize: 11,
+              opacity: 0.8,
+              marginTop: 4,
+              lineHeight: 1.3,
+            }}
+          >
+            Üye olduğun kulüp
+          </div>
+        </div>
 
-          {showAnnForm && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 8 }}>
-              {myPresidentClubIds.length > 1 ? (
-                <select
-                  value={annClub}
-                  onChange={(e) => setAnnClub(e.target.value)}
-                  style={input(theme)}
-                >
-                  {myPresidentClubIds.map((cid) => {
-                    const name = clubsQ.data?.find(c => c.id === cid)?.name || "Kulüp";
-                    return <option key={cid} value={cid}>{name}</option>;
-                  })}
-                </select>
-              ) : (
-                <input
-                  readOnly
-                  value={clubsQ.data?.find(c => c.id === myPresidentClubIds[0])?.name || "Kulüp"}
-                  style={{ ...input(theme), background: theme === "dark" ? "#0b1220" : "#fafafa" }}
-                />
-              )}
+        {/* Kart 2: Yaklaşan etkinlikler */}
+        <div
+          style={{
+            background: "rgba(255,255,255,.12)",
+            border: "1px solid rgba(255,255,255,.3)",
+            borderRadius: 12,
+            padding: "10px 12px",
+            minHeight: 70,
+            display: "grid",
+          }}
+        >
+          <div style={{ fontSize: 12, opacity: 0.9 }}>Yaklaşan</div>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              lineHeight: 1,
+            }}
+          >
+            {upcomingQ.data?.length ?? 0}
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              opacity: 0.8,
+              marginTop: 4,
+              lineHeight: 1.3,
+            }}
+          >
+            {days} gün içinde etkinlik
+          </div>
+        </div>
 
+        {/* Kart 3: Duyurular */}
+        <div
+          style={{
+            background: "rgba(255,255,255,.12)",
+            border: "1px solid rgba(255,255,255,.3)",
+            borderRadius: 12,
+            padding: "10px 12px",
+            minHeight: 70,
+            display: "grid",
+          }}
+        >
+          <div style={{ fontSize: 12, opacity: 0.9 }}>Duyurular</div>
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              lineHeight: 1,
+            }}
+          >
+            {annsQ.data?.length ?? 0}
+          </div>
+          <div
+            style={{
+              fontSize: 11,
+              opacity: 0.8,
+              marginTop: 4,
+              lineHeight: 1.3,
+            }}
+          >
+            Kulüplerinden
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* === Filtre barı === */}
+    <section
+      style={{
+        display: "grid",
+        gridTemplateColumns: "2fr 1fr 1fr",
+        gap: 8,
+      }}
+    >
+      <input
+        placeholder="Etkinliklerde ara (başlık/konum)…"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        style={{
+          padding: 10,
+          border: "1px solid #ddd",
+          borderRadius: 8,
+        }}
+      />
+      <select
+        value={filterClub}
+        onChange={(e) => setFilterClub(e.target.value)}
+        style={{
+          padding: 10,
+          border: "1px solid #ddd",
+          borderRadius: 8,
+          background: "#fff",
+        }}
+      >
+        <option value="">Tüm Kulüpler</option>
+        {myClubs.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+      <select
+        value={String(days)}
+        onChange={(e) => setDays(parseInt(e.target.value))}
+        style={{
+          padding: 10,
+          border: "1px solid #ddd",
+          borderRadius: 8,
+          background: "#fff",
+        }}
+      >
+        <option value="7">7 gün</option>
+        <option value="14">14 gün</option>
+        <option value="30">30 gün</option>
+      </select>
+    </section>
+
+    {/* === Başkan hızlı aksiyonlar === */}
+    {myPresidentClubIds.length > 0 && (
+      <section
+        style={{
+          border: "1px solid #eee",
+          borderRadius: 12,
+          padding: 12,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 10,
+          }}
+        >
+          <strong>Hızlı Aksiyonlar</strong>
+          <span style={{ fontSize: 12, color: "#666" }}>
+            (yalnızca kulüp başkanları)
+          </span>
+          <div style={{ flex: 1 }} />
+          <Link
+            to={`/clubs/${myPresidentClubIds[0]}/events`}
+            style={{
+              textDecoration: "none",
+              padding: "6px 10px",
+              border: "1px solid #ddd",
+              borderRadius: 8,
+            }}
+          >
+            Yeni Etkinlik Oluştur
+          </Link>
+          <button
+            onClick={() => setShowAnnForm((s) => !s)}
+            style={{
+              padding: "6px 10px",
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              background: "#fff",
+            }}
+          >
+            {showAnnForm ? "İptal" : "Duyuru Yayınla"}
+          </button>
+        </div>
+
+        {showAnnForm && (
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, minmax(0,1fr))",
+              gap: 8,
+            }}
+          >
+            {myPresidentClubIds.length > 1 && (
+              <select
+                value={annClub}
+                onChange={(e) => setAnnClub(e.target.value)}
+                style={{
+                  padding: 10,
+                  border: "1px solid #ddd",
+                  borderRadius: 8,
+                  background: "#fff",
+                }}
+              >
+                {myPresidentClubIds.map((cid) => {
+                  const name =
+                    clubsQ.data?.find((c) => c.id === cid)?.name || "Kulüp";
+                  return (
+                    <option key={cid} value={cid}>
+                      {name}
+                    </option>
+                  );
+                })}
+              </select>
+            )}
+
+            {myPresidentClubIds.length === 1 && (
               <input
-                placeholder="Duyuru başlığı"
-                value={annTitle}
-                onChange={(e) => setAnnTitle(e.target.value)}
-                style={input(theme)}
+                readOnly
+                value={
+                  clubsQ.data?.find(
+                    (c) => c.id === myPresidentClubIds[0]
+                  )?.name || "Kulüp"
+                }
+                style={{
+                  padding: 10,
+                  border: "1px solid #eee",
+                  borderRadius: 8,
+                  background: "#fafafa",
+                }}
               />
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-                <input type="checkbox" checked={annPinned} onChange={(e) => setAnnPinned(e.target.checked)} />
-                Üste sabitle (pinned)
-              </label>
-              <textarea
-                placeholder="Kısa içerik (opsiyonel)"
-                value={annContent}
-                onChange={(e) => setAnnContent(e.target.value)}
-                rows={3}
-                style={{ ...input(theme), resize: "vertical", gridColumn: "1 / -1" }}
+            )}
+
+            <input
+              placeholder="Duyuru başlığı"
+              value={annTitle}
+              onChange={(e) => setAnnTitle(e.target.value)}
+              style={{
+                padding: 10,
+                border: "1px solid #ddd",
+                borderRadius: 8,
+              }}
+            />
+
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                fontSize: 13,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={annPinned}
+                onChange={(e) => setAnnPinned(e.target.checked)}
               />
-              <div style={{ gridColumn: "1 / -1" }}>
-                <button
-                  onClick={() => createAnn.mutate()}
-                  disabled={(!annClub && myPresidentClubIds.length > 1) || !annTitle || createAnn.isPending}
-                  style={mainBtn(theme)}
-                >
-                  {createAnn.isPending ? "Yayınlanıyor..." : "Yayınla"}
-                </button>
-              </div>
+              Üste sabitle (pinned)
+            </label>
+
+            <textarea
+              placeholder="Kısa içerik (opsiyonel)"
+              value={annContent}
+              onChange={(e) => setAnnContent(e.target.value)}
+              rows={3}
+              style={{
+                gridColumn: "1 / -1",
+                padding: 10,
+                border: "1px solid #ddd",
+                borderRadius: 8,
+                resize: "vertical",
+              }}
+            />
+
+            <div style={{ gridColumn: "1 / -1" }}>
+              <button
+                onClick={() => createAnn.mutate()}
+                disabled={
+                  (!annClub && myPresidentClubIds.length > 1) ||
+                  !annTitle ||
+                  createAnn.isPending
+                }
+                style={{
+                  padding: "8px 12px",
+                  border: "none",
+                  borderRadius: 8,
+                  background: "#3b82f6",
+                  color: "#fff",
+                }}
+              >
+                {createAnn.isPending ? "Yayınlanıyor..." : "Yayınla"}
+              </button>
             </div>
-          )}
-        </section>
-      )}
+          </div>
+        )}
+      </section>
+    )}
 
       {/* Yaklaşan etkinlikler */}
       <section style={cardStyle}>

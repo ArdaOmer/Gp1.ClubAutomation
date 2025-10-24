@@ -11,11 +11,13 @@ import type { Club, EventItem } from "../types";
 // xPct / yPct DEĞERLERİ % (0–100) OLARAK VERİLİR (responsive çalışır)
 type Pos = { xPct: number; yPct: number; label?: string };
 const locationMap: Record<string, Pos> = {
-  "A Blok": { xPct: 30, yPct: 45, label: "A Blok" },
-  "B Blok": { xPct: 45, yPct: 58, label: "B Blok" },
-  "Kütüphane": { xPct: 68, yPct: 32, label: "Kütüphane" },
-  "Spor Salonu": { xPct: 62, yPct: 78, label: "Spor Salonu" },
-  "Konferans Salonu": { xPct: 52, yPct: 66, label: "Konferans Salonu" },
+  "A Blok": { xPct: 10, yPct: 72, label: "A Blok" },
+  "Gençlik Merkezi": { xPct: 64, yPct: 58, label: "Gençlik Merkezi" },
+  "Kütüphane": { xPct: 53, yPct: 74, label: "Kütüphane" },
+  "Stadyum": { xPct: 97, yPct: 43, label: "Stadyum" },
+  "Spor Salonu":{xPct:78,yPct:90,label:"Spor Salonu"},
+  "Konferans Salonu": { xPct: 29, yPct: 36, label: "Konferans Salonu" },
+  "Cey Park": {xPct:42,yPct:68,label:"Cey Park"},
   // İstediğin kadar ekleyebilirsin…
 };
 
