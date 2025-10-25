@@ -21,6 +21,8 @@ import { Link } from "react-router-dom";
 import type { Club, EventItem, Announcement } from "../types";
 import CampusFeed from "../components/CampusFeed";
 import CampusMap from "../components/CampusMap";
+import { useNotifications } from "../notifications/NotificationContext";
+
 
 
 
@@ -30,6 +32,8 @@ export default function Home() {
   const { theme } = useTheme();
   const qc = useQueryClient();
   const { push } = useToast();
+  const { refresh } = useNotifications();
+
 
   // --- UI state ---
   const [q, setQ] = useState("");
@@ -86,17 +90,35 @@ export default function Home() {
   }, [annClub, myPresidentClubIds]);
 
   const createAnn = useMutation({
-    mutationFn: () => createAnnouncement(annClub, { title: annTitle, content: annContent, pinned: annPinned }),
-    onSuccess: () => {
-      setAnnTitle(""); setAnnContent(""); setAnnPinned(false);
-      qc.invalidateQueries({ queryKey: annKey as any });
-      setShowAnnForm(false);
-      push({ message: "Duyuru yayınlandı ✅" });
-    },
-    onError: () => {
-      push({ message: "Duyuru yayınlanamadı", type: "error" });
-    }
-  });
+  mutationFn: () =>
+    createAnnouncement(annClub, {
+      title: annTitle,
+      content: annContent,
+      pinned: annPinned,
+    }),
+  onSuccess: () => {
+    // form temizle
+    setAnnTitle("");
+    setAnnContent("");
+    setAnnPinned(false);
+
+    // react-query cache invalidation (varsa)
+    qc.invalidateQueries({ queryKey: annKey as any });
+
+    // NotificationProvider içindeki duyuruları yeniden yükle
+    refresh();
+
+    // formu kapat
+    setShowAnnForm(false);
+
+    // kullanıcıya mesaj
+    push({ message: "Duyuru yayınlandı ✅" });
+  },
+  onError: () => {
+    push({ message: "Duyuru yayınlanamadı", type: "error" });
+  },
+});
+
 
   useEffect(() => { window.scrollTo({ top: 0, behavior: "smooth" }); }, []);
   if (!user) return <div style={{ padding: 16 }}>Giriş gerekli.</div>;

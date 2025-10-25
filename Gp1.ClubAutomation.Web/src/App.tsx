@@ -1,11 +1,14 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import Profile from "./pages/Profile";
 import Clubs from "./pages/Clubs";
 import ClubEvents from "./pages/ClubEvents";
 import Certificates from "./pages/Certificates";
+import AnnouncementsPage from "./pages/AnnouncementsPage";
 import NotFound from "./pages/NotFound";
+
 import ProtectedRoute from "./auth/ProtectedRoute";
 import AppLayout from "./components/AppLayout";
 
@@ -13,10 +16,10 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public */}
+        {/* Public route */}
         <Route path="/login" element={<Login />} />
 
-        {/* Protected */}
+        {/* Protected routes */}
         <Route
           path="/"
           element={
@@ -72,7 +75,18 @@ export default function App() {
           }
         />
 
-        {/* 404 */}
+        <Route
+          path="/announcements"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <AnnouncementsPage />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 404 en sonda */}
         <Route
           path="*"
           element={
