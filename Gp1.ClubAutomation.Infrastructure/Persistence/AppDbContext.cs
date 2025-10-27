@@ -1,5 +1,6 @@
 ﻿using Gp1.ClubAutomation.Domain.Common;
 using Gp1.ClubAutomation.Domain.Entities;
+using Gp1.ClubAutomation.Domain.Entities.Auth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 
@@ -15,7 +16,8 @@ namespace Gp1.ClubAutomation.Infrastructure.Persistence
         // DbSet tanımları
         public DbSet<Club> Clubs => Set<Club>();
         public DbSet<Event> Events => Set<Event>();
-
+        public DbSet<User> Users => Set<User>();
+        
         // Audit işlemleri
         public override int SaveChanges()
         {
@@ -56,16 +58,16 @@ namespace Gp1.ClubAutomation.Infrastructure.Persistence
                 }
             }
         }
-
+        
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // Varsayılan schema
             modelBuilder.HasDefaultSchema("club");
-
-            // Tüm configuration sınıflarını otomatik yükle
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+
+            modelBuilder.Entity<User>().ToTable("Users", "auth");
         }
+
     }
 }

@@ -114,12 +114,12 @@ dotnet ef database update -p Gp1.ClubAutomation.Infrastructure -s Gp1.ClubAutoma
 - Testler için Postman'de ayrıca kullanılabilir.
 
 ---
-
+F
 ## 🧩 Veritabanı Yapısı
 - Varsayılan şema: **club**
 - Ortak alanlar:  
   `CreatedDate`, `UpdatedDate`, `CreatedBy`, `UpdatedBy`, `IsActive`, `IsDeleted`
-- Örnek tablolar:
+- Örnek tablolar:F
     - `club.Clubs`
     - `club.Events`
 
