@@ -83,6 +83,16 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// AI servisi için HttpClient
+builder.Services.AddHttpClient("AiService", client =>
+{
+    var baseUrl = builder.Configuration["AiService:BaseUrl"];
+    if (string.IsNullOrWhiteSpace(baseUrl))
+        throw new InvalidOperationException("AiService:BaseUrl is not configured.");
+
+    client.BaseAddress = new Uri(baseUrl);
+});
+
 // =============================
 //  Build Application
 // =============================
