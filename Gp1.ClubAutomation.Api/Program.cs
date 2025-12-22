@@ -17,10 +17,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173") // 👈 Frontend adresin
+        policy.WithOrigins("http://localhost:5173") // 👈 Frontend address.
             .AllowAnyHeader()
             .AllowAnyMethod()
-            .AllowCredentials(); // 👈 ÖNEMLİ: withCredentials'ı destekler
+            .AllowCredentials(); // 👈 IMPORTANT: withCredentials support.
     });
 });
 

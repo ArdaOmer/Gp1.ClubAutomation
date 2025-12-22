@@ -22,6 +22,25 @@ namespace Gp1.ClubAutomation.Infrastructure.Services
                 })
                 .ToListAsync();
         }
+        
+        public async Task<UserMeDto?> GetMeAsync(int userId, CancellationToken ct)
+        {
+            var user = await _db.Users.FirstOrDefaultAsync(x => x.Id == userId, ct);
+            if (user is null) return null;
+
+            return new UserMeDto
+            {
+                Id = user.Id,
+                Email = user.Email,
+                Name = user.FullName,
+                Department = user.Department,
+                Grade = user.Grade,
+                BirthDate = user.BirthDate,
+                Phone = user.Phone,
+                Bio = user.Bio,
+                AvatarDataUrl = user.AvatarDataUrl
+            };
+        }
 
         public async Task<UserMeDto?> UpdateMeAsync(int userId, UpdateMeRequest req, CancellationToken ct)
         {

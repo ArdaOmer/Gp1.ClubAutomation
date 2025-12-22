@@ -5,6 +5,7 @@ namespace Gp1.ClubAutomation.Application.Interfaces
 {
     public interface IUserService
     {
+        Task<UserMeDto?> GetMeAsync(int userId, CancellationToken ct);
         Task<UserMeDto?> UpdateMeAsync(int userId, UpdateMeRequest req, CancellationToken ct);
         
         // Optional method to FE's a page.

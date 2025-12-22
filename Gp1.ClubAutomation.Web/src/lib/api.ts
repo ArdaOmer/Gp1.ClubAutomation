@@ -120,6 +120,12 @@ export async function updateMe(payload: {
   return data;
 }
 
+// GET /api/users/me  -> UserDto
+export async function getMe() {
+  const { data } = await api.get("/users/me");
+  return data;
+}
+
 /* =========================================================
    MEMBERSHIPS
    ========================================================= */

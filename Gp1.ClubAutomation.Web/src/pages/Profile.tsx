@@ -1,26 +1,25 @@
+// src/pages/Profile.tsx
 import type { FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
-import { getMyMemberships, getClubs, updateMe } from "../lib/api";
+import { getMyMemberships, getClubs, updateMe, getMe } from "../lib/api";
 import { useQuery } from "@tanstack/react-query";
 import type { Membership } from "../types";
 
 /*
 === NAME VERIFICATION ===
-Turkish characters (A–Z + ÇĞİÖŞÜ çğıöşü), spaces, hyphens (-) and typographic apostrophes (’) are allowed.
+Turkish characters (A–Z + ÇĞİÖŞÜçğıöşü), spaces, hyphens (-) and typographic apostrophes (’) are allowed.
 2–50 characters. Numbers and other symbols are not allowed.
 */
-
 const NAME_PATTERN = /^[A-Za-zÇĞİÖŞÜçğıöşü\s'-]{2,50}$/u;
 
 function normalizeName(raw: string) {
   return raw
     .trim()
-    .replace(/\s+/g, " ") // multiple spaces -> single space
-    .replace(/\s*-\s*/g, "-") // - remove the spaces around it
-    .replace(/\s*'\s*/g, "’"); // plain apostrophe -> typographic '
+    .replace(/\s+/g, " ")
+    .replace(/\s*-\s*/g, "-")
+    .replace(/\s*'\s*/g, "’");
 }
-
 function isValidName(v: string) {
   return NAME_PATTERN.test(v);
 }
@@ -36,15 +35,18 @@ function readFileAsDataURL(file: File): Promise<string> {
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
-
-  // We read from "any" so that we can keep these fields in the FE even if they don't exist in the user type.
   const u = user as any;
+
+  // ✅ Prevent server refresh from overriding user edits
+  const [dirty, setDirty] = useState(false);
 
   const [name, setName] = useState(u?.name ?? "");
   const [nameError, setNameError] = useState<string | null>(null);
 
   const [department, setDepartment] = useState(u?.department ?? "");
-  const [grade, setGrade] = useState<number | "">(typeof u?.grade === "number" ? u.grade : "");
+  const [grade, setGrade] = useState<number | "">(
+    typeof u?.grade === "number" ? u.grade : ""
+  );
   const [birthDate, setBirthDate] = useState(u?.birthDate ?? "");
   const [phone, setPhone] = useState(u?.phone ?? "");
   const [bio, setBio] = useState(u?.bio ?? "");
@@ -55,42 +57,86 @@ export default function Profile() {
   const [msg, setMsg] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
-  const clubsQ = useQuery({ queryKey: ["clubs"], queryFn: getClubs });
+  // ✅ IMPORTANT:
+  // We hydrate the form from GET /users/me (server truth).
+  // BUT we must NOT call updateUser(serverMe) on every render -> causes infinite loop.
+  const didHydrateOnceRef = useRef(false);
 
-  // ✅ Asynchronously retrieve memberships (the old bug was causing this)
+  const meQ = useQuery({
+    queryKey: ["me"], // ✅ do NOT depend on user object; token already identifies "me"
+    queryFn: () => getMe(),
+    enabled: !!user,
+    staleTime: 60_000,
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+
+  // Clubs
+  const clubsQ = useQuery({
+    queryKey: ["clubs"],
+    queryFn: getClubs,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  // Memberships
   const membershipsQ = useQuery({
     queryKey: ["memberships", user?.id],
     queryFn: () => getMyMemberships(user!.id),
     enabled: !!user,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
-  const memberships: Membership[] = Array.isArray(membershipsQ.data) ? membershipsQ.data : [];
+  const memberships: Membership[] = Array.isArray(membershipsQ.data)
+    ? membershipsQ.data
+    : [];
 
+  // ✅ Hydrate form once when server "me" arrives (and not dirty)
   useEffect(() => {
     if (!user) return;
-    const uu = user as any;
-    setName(uu.name ?? "");
-    setDepartment(uu.department ?? "");
-    setGrade(typeof uu.grade === "number" ? uu.grade : "");
-    setBirthDate(uu.birthDate ?? "");
-    setPhone(uu.phone ?? "");
-    setBio(uu.bio ?? "");
-    setAvatar(uu.avatarDataUrl);
-  }, [user]);
+    if (!meQ.data) return;
+
+    const serverMe = meQ.data as any;
+
+    // ✅ Only hydrate form if the user is not currently editing
+    if (!dirty) {
+      setName(serverMe?.name ?? "");
+      setDepartment(serverMe?.department ?? "");
+      setGrade(typeof serverMe?.grade === "number" ? serverMe.grade : "");
+      setBirthDate(serverMe?.birthDate ?? "");
+      setPhone(serverMe?.phone ?? "");
+      setBio(serverMe?.bio ?? "");
+      setAvatar(serverMe?.avatarDataUrl);
+    }
+
+    // ✅ Optional: update auth user ONLY ONCE (prevents loops)
+    if (!didHydrateOnceRef.current) {
+      didHydrateOnceRef.current = true;
+      updateUser(serverMe);
+    }
+  }, [user, meQ.data, dirty, updateUser]);
+
+  // ✅ Also, if auth user changes (login/logout), reset "hydrate once"
+  useEffect(() => {
+    didHydrateOnceRef.current = false;
+  }, [user?.id]);
 
   if (!user) return <div style={{ padding: 16 }}>Login required.</div>;
 
   const clubNameMap = useMemo(() => {
     const map = new Map<number, string>();
-    (clubsQ.data ?? []).forEach((c) => map.set(c.id, c.name));
+    (clubsQ.data ?? []).forEach((c: any) => map.set(c.id, c.name));
     return map;
   }, [clubsQ.data]);
 
   // --- Simple verifications ---
   const nameValid = isValidName(normalizeName(name));
-  const gradeValid = grade === "" || (typeof grade === "number" && grade >= 1 && grade <= 6);
+  const gradeValid =
+    grade === "" || (typeof grade === "number" && grade >= 1 && grade <= 6);
   const birthValid = !birthDate || new Date(birthDate) <= new Date();
-  const phoneValid = !phone || /^\+?90?5\d{9}$/.test(phone.replace(/\s+/g, ""));
+  const phoneValid =
+    !phone || /^\+?90?5\d{9}$/.test(phone.replace(/\s+/g, ""));
   const formValid = nameValid && gradeValid && birthValid && phoneValid;
 
   const onSubmit = async (e: FormEvent) => {
@@ -101,7 +147,9 @@ export default function Profile() {
     setName(n);
 
     if (!isValidName(n)) {
-      setNameError("Only letters, spaces, - and ’ are allowed (2–50 characters).");
+      setNameError(
+        "Only letters, spaces, - and ’ are allowed (2–50 characters)."
+      );
       setErrMsg("Please check the form.");
       return;
     } else {
@@ -129,9 +177,15 @@ export default function Profile() {
 
       const updated = await updateMe(payload);
 
-      // ✅ push user from backend to state + localStorage
+      // ✅ Here is the correct place to update auth user
       updateUser(updated);
 
+      // ✅ keep react-query cache in sync (optional but helpful)
+      // If your api.ts returns same shape as getMe, this prevents extra refetch surprises.
+      // (If you don't want to import/useQueryClient here, you can skip this.)
+      // queryClient.setQueryData(["me"], updated);
+
+      setDirty(false);
       setMsg("Profile updated.");
     } catch {
       setErrMsg("Something went wrong while saving.");
@@ -141,11 +195,16 @@ export default function Profile() {
     }
   };
 
-  const initials = (u?.name || u?.email || "?").split(" ")[0].slice(0, 2).toUpperCase();
+  const initials = (u?.name || u?.email || "?")
+    .split(" ")[0]
+    .slice(0, 2)
+    .toUpperCase();
 
   async function onAvatarChange(f: File | undefined) {
     setAvatarErr(null);
     if (!f) return;
+
+    setDirty(true);
 
     const okTypes = ["image/png", "image/jpeg", "image/jpg"];
     if (!okTypes.includes(f.type)) {
@@ -166,13 +225,23 @@ export default function Profile() {
   }
 
   function clearAvatar() {
+    setDirty(true);
     setAvatar(undefined);
   }
+
+  const loadingTop = meQ.isLoading;
 
   return (
     <div style={{ padding: 16, maxWidth: 880, margin: "0 auto" }}>
       {/* Header + avatar */}
-      <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 16 }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 16,
+          alignItems: "center",
+          marginBottom: 16,
+        }}
+      >
         <div
           style={{
             width: 72,
@@ -187,7 +256,11 @@ export default function Profile() {
           }}
         >
           {avatar ? (
-            <img src={avatar} alt="avatar" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <img
+              src={avatar}
+              alt="avatar"
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
           ) : (
             initials
           )}
@@ -195,12 +268,37 @@ export default function Profile() {
         <div>
           <h2 style={{ margin: 0 }}>My Profile</h2>
           <div style={{ fontSize: 13, color: "#666" }}>{u?.email}</div>
+          {loadingTop && (
+            <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+              Loading your profile…
+            </div>
+          )}
+          {meQ.isError && (
+            <div style={{ fontSize: 12, color: "#b91c1c", marginTop: 4 }}>
+              Could not refresh profile from server.
+            </div>
+          )}
         </div>
       </div>
 
       {/* Upload avatar */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
-        <label style={{ padding: "8px 12px", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", background: "#fff" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          marginBottom: 16,
+        }}
+      >
+        <label
+          style={{
+            padding: "8px 12px",
+            border: "1px solid #ddd",
+            borderRadius: 8,
+            cursor: "pointer",
+            background: "#fff",
+          }}
+        >
           Upload Photo
           <input
             type="file"
@@ -211,18 +309,33 @@ export default function Profile() {
         </label>
 
         {avatar && (
-          <button onClick={clearAvatar} style={{ padding: "8px 12px", border: "1px solid #ddd", borderRadius: 8, background: "#fff" }}>
+          <button
+            onClick={clearAvatar}
+            style={{
+              padding: "8px 12px",
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              background: "#fff",
+            }}
+          >
             Remove
           </button>
         )}
 
-        {avatarErr && <span style={{ color: "#b91c1c", fontSize: 12 }}>{avatarErr}</span>}
+        {avatarErr && (
+          <span style={{ color: "#b91c1c", fontSize: 12 }}>{avatarErr}</span>
+        )}
       </div>
 
       {/* Profile form */}
       <form
         onSubmit={onSubmit}
-        style={{ display: "grid", gap: 12, marginBottom: 20, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}
+        style={{
+          display: "grid",
+          gap: 12,
+          marginBottom: 20,
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+        }}
       >
         <label style={{ display: "grid", gap: 6 }}>
           <span>Full Name</span>
@@ -230,37 +343,62 @@ export default function Profile() {
             value={name}
             onChange={(e) => {
               const v = e.target.value;
+              setDirty(true);
               setName(v);
+
               if (v.length === 0) setNameError("Name is required.");
               else if (!isValidName(normalizeName(v)))
-                setNameError("Only letters, spaces, - and ’ are allowed (2–50 characters).");
+                setNameError(
+                  "Only letters, spaces, - and ’ are allowed (2–50 characters)."
+                );
               else setNameError(null);
             }}
             onBlur={() => {
               const n = normalizeName(name);
               setName(n);
-              if (!isValidName(n)) setNameError("Please enter a valid name (letters, spaces, - and ’ only).");
+              if (!isValidName(n))
+                setNameError(
+                  "Please enter a valid name (letters, spaces, - and ’ only)."
+                );
               else setNameError(null);
             }}
-            style={{ padding: 10, border: `1px solid ${nameError ? "#ef4444" : "#ddd"}`, borderRadius: 8 }}
+            style={{
+              padding: 10,
+              border: `1px solid ${nameError ? "#ef4444" : "#ddd"}`,
+              borderRadius: 8,
+            }}
             placeholder="e.g., Omer"
             required
             inputMode="text"
             autoComplete="name"
           />
-          {nameError && <span style={{ color: "#b91c1c", fontSize: 12 }}>{nameError}</span>}
+          {nameError && (
+            <span style={{ color: "#b91c1c", fontSize: 12 }}>{nameError}</span>
+          )}
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
           <span>Email</span>
-          <input value={u?.email} readOnly style={{ padding: 10, border: "1px solid #eee", borderRadius: 8, background: "#fafafa" }} />
+          <input
+            value={u?.email}
+            readOnly
+            style={{
+              padding: 10,
+              border: "1px solid #eee",
+              borderRadius: 8,
+              background: "#fafafa",
+            }}
+          />
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
           <span>Department</span>
           <input
             value={department}
-            onChange={(e) => setDepartment(e.target.value)}
+            onChange={(e) => {
+              setDirty(true);
+              setDepartment(e.target.value);
+            }}
             style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8 }}
             placeholder="e.g., Computer Engineering"
           />
@@ -270,8 +408,16 @@ export default function Profile() {
           <span>Grade</span>
           <select
             value={grade === "" ? "" : String(grade)}
-            onChange={(e) => setGrade(e.target.value ? parseInt(e.target.value) : "")}
-            style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8, background: "#fff" }}
+            onChange={(e) => {
+              setDirty(true);
+              setGrade(e.target.value ? parseInt(e.target.value) : "");
+            }}
+            style={{
+              padding: 10,
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              background: "#fff",
+            }}
           >
             <option value="">Not selected</option>
             <option value="1">1st Year</option>
@@ -283,7 +429,11 @@ export default function Profile() {
             <option value="7">Preparatory</option>
             <option value="8">Master’s</option>
           </select>
-          {!gradeValid && <span style={{ color: "#b91c1c", fontSize: 12 }}>Grade must be between 1–6.</span>}
+          {!gradeValid && (
+            <span style={{ color: "#b91c1c", fontSize: 12 }}>
+              Grade must be between 1–6.
+            </span>
+          )}
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
@@ -291,17 +441,27 @@ export default function Profile() {
           <input
             type="date"
             value={birthDate || ""}
-            onChange={(e) => setBirthDate(e.target.value)}
+            onChange={(e) => {
+              setDirty(true);
+              setBirthDate(e.target.value);
+            }}
             style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8 }}
           />
-          {!birthValid && <span style={{ color: "#b91c1c", fontSize: 12 }}>Date cannot be in the future.</span>}
+          {!birthValid && (
+            <span style={{ color: "#b91c1c", fontSize: 12 }}>
+              Date cannot be in the future.
+            </span>
+          )}
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
           <span>Phone</span>
           <input
             value={phone}
-            onChange={(e) => setPhone(e.target.value)}
+            onChange={(e) => {
+              setDirty(true);
+              setPhone(e.target.value);
+            }}
             style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8 }}
             placeholder="+90 5__ ___ __ __"
           />
@@ -316,14 +476,29 @@ export default function Profile() {
           <span>About Me</span>
           <textarea
             value={bio}
-            onChange={(e) => setBio(e.target.value)}
+            onChange={(e) => {
+              setDirty(true);
+              setBio(e.target.value);
+            }}
             rows={4}
-            style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8, resize: "vertical" }}
+            style={{
+              padding: 10,
+              border: "1px solid #ddd",
+              borderRadius: 8,
+              resize: "vertical",
+            }}
             placeholder="You can briefly introduce yourself…"
           />
         </label>
 
-        <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 12 }}>
+        <div
+          style={{
+            gridColumn: "1 / -1",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
           <button
             disabled={saving || !formValid}
             style={{
@@ -338,7 +513,9 @@ export default function Profile() {
             {saving ? "Saving..." : "Save"}
           </button>
           {msg && <span style={{ fontSize: 13, color: "#10b981" }}>{msg}</span>}
-          {errMsg && <span style={{ fontSize: 13, color: "#b91c1c" }}>{errMsg}</span>}
+          {errMsg && (
+            <span style={{ fontSize: 13, color: "#b91c1c" }}>{errMsg}</span>
+          )}
         </div>
       </form>
 
@@ -349,7 +526,9 @@ export default function Profile() {
         {clubsQ.isLoading || membershipsQ.isLoading ? (
           <div style={{ color: "#666" }}>Loading…</div>
         ) : memberships.length === 0 ? (
-          <div style={{ color: "#666" }}>You are not a member of any club.</div>
+          <div style={{ color: "#666" }}>
+            You are not a member of any club.
+          </div>
         ) : (
           <ul style={{ display: "grid", gap: 8, listStyle: "none", padding: 0 }}>
             {memberships.map((m) => {

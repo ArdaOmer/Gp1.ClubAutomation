@@ -18,6 +18,21 @@ public class UsersController : ControllerBase
         _userService = userService;
         _attendanceService = attendanceService;
     }
+    
+    [HttpGet("me")]
+    public async Task<IActionResult> GetMe(CancellationToken ct)
+    {
+        var idStr = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                    ?? User.FindFirstValue("sub");
+
+        if (string.IsNullOrWhiteSpace(idStr) || !int.TryParse(idStr, out var userId))
+            return Unauthorized();
+
+        var me = await _userService.GetMeAsync(userId, ct);
+        if (me is null) return NotFound();
+
+        return Ok(me);
+    }
 
     [HttpPut("me")]
     public async Task<IActionResult> UpdateMe([FromBody] UpdateMeRequest req, CancellationToken ct)
