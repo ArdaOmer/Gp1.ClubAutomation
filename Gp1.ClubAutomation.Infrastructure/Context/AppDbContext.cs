@@ -46,17 +46,33 @@ namespace Gp1.ClubAutomation.Infrastructure.Context
                         entry.Entity.CreatedDate = DateTime.UtcNow;
                         entry.Entity.IsActive = true;
                         entry.Entity.IsDeleted = false;
+                        entry.Entity.DeletedDate = null; // safe reset (if nullable)
                         break;
 
                     case EntityState.Modified:
                         entry.Entity.UpdatedDate = DateTime.UtcNow;
+
+                        // If entity IsDeleted is true, IsActive set false
+                        if (entry.Entity.IsDeleted)
+                        {
+                            entry.Entity.IsActive = false;
+                            
+                            if (entry.Entity.DeletedDate == null)
+                                entry.Entity.DeletedDate = DateTime.UtcNow;
+                        }
                         break;
 
                     case EntityState.Deleted:
                         // Soft delete
                         entry.State = EntityState.Modified;
                         entry.Entity.IsDeleted = true;
-                        entry.Entity.DeletedDate = DateTime.UtcNow;
+                        entry.Entity.IsActive = false;
+
+                        // DeletedDate set
+                        if (entry.Entity.DeletedDate == null)
+                            entry.Entity.DeletedDate = DateTime.UtcNow;
+
+                        entry.Entity.UpdatedDate = DateTime.UtcNow;
                         break;
                 }
             }
