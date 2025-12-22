@@ -11,14 +11,14 @@ public class AiController : ControllerBase
 
     public AiController(IHttpClientFactory httpClientFactory)
     {
-        // Program.cs içinde tanımladığımız "AiService" isimli HttpClient'ı kullanıyoruz
+        // We are using the HttpClient named "AiService" that we defined in Program.cs
         _aiClient = httpClientFactory.CreateClient("AiService");
     }
 
     [HttpPost("recommend-clubs")]
     public async Task<IActionResult> RecommendClubs([FromBody] SurveyAnswersRequest request)
     {
-        // .NET → Python AI servisine POST isteği
+        // .NET → POST request to Python AI service
         var response = await _aiClient.PostAsJsonAsync("/recommend-clubs", request);
 
         if (!response.IsSuccessStatusCode)
@@ -26,12 +26,12 @@ public class AiController : ControllerBase
             var errorText = await response.Content.ReadAsStringAsync();
             return StatusCode((int)response.StatusCode, new
             {
-                message = "AI servisi bir hata döndürdü.",
+                message = "The AI service returned an error.",
                 details = errorText
             });
         }
 
-        // Dönen JSON'u string olarak alıp FE'ye aynen forward ediyoruz
+        // We receive the returned JSON as a string and forward it to FE as is.
         var json = await response.Content.ReadAsStringAsync();
         return Content(json, "application/json");
     }

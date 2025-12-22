@@ -83,7 +83,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// AI servisi için HttpClient
+// AI Service for HttpClient
 builder.Services.AddHttpClient("AiService", client =>
 {
     var baseUrl = builder.Configuration["AiService:BaseUrl"];
