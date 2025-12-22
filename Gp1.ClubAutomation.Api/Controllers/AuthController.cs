@@ -1,4 +1,4 @@
-﻿using Gp1.ClubAutomation.Application.Services;
+﻿using Gp1.ClubAutomation.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,32 +9,25 @@ namespace Gp1.ClubAutomation.Api.Controllers
     [Authorize]
     public class AuthController : ControllerBase
     {
-        private readonly AuthService _authService;
+        private readonly IAuthService _authService;
 
-        public AuthController(AuthService authService)
+        public AuthController(IAuthService authService)
         {
             _authService = authService;
         }
 
-        [HttpPost("register")]
-        public async Task<IActionResult> Register(RegisterRequest request)
-        {
-            var token = await _authService.RegisterAsync(request.Username, request.Email, request.Password, request.FullName);
-            if (token == null)
-                return BadRequest("Bu e-posta adresiyle kayıtlı kullanıcı zaten var.");
-            return Ok(new { Token = token });
-        }
-
+        [AllowAnonymous]
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginRequest request)
         {
-            var token = await _authService.LoginAsync(request.Email, request.Password);
-            if (token == null)
-                return Unauthorized("Geçersiz e-posta veya şifre.");
-            return Ok(new { Token = token });
+            var response = await _authService.LoginAsync(request.Email, request.Password);
+
+            if (response == null)
+                return Unauthorized(new { message = "Invalid e-mail or password." });
+
+            return Ok(response);
         }
     }
 
-    public record RegisterRequest(string Username, string Email, string Password, string? FullName);
     public record LoginRequest(string Email, string Password);
 }

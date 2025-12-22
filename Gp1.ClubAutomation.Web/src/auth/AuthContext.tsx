@@ -5,7 +5,7 @@ type AuthCtx = {
   user: User | null;
   login: (t: string, u: User) => void;
   logout: () => void;
-  updateUser: (u: Partial<User>) => void; // ⬅️ eklendi
+  updateUser: (u: Partial<User>) => void;
   ready: boolean;
 };
 
@@ -19,7 +19,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const t = localStorage.getItem("token");
     const u = localStorage.getItem("user");
     if (t && u) {
-      try { setUser(JSON.parse(u)); } catch {}
+      try {
+        const parsed = JSON.parse(u);
+        if (parsed?.id != null) parsed.id = Number(parsed.id);
+        setUser(parsed);
+      } catch {
+        // ignore
+      }
     }
     setReady(true);
   }, []);
@@ -37,7 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateUser = (patch: Partial<User>) => {
-    setUser(prev => {
+    setUser((prev) => {
       if (!prev) return prev;
       const next = { ...prev, ...patch };
       localStorage.setItem("user", JSON.stringify(next));
@@ -54,6 +60,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const v = useContext(Ctx);
-  if (!v) throw new Error("useAuth AuthProvider içinde kullanılmalı.");
+  if (!v) throw new Error("`useAuth` must be used within the `AuthProvider`.");
   return v;
 };

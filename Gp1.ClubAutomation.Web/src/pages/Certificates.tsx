@@ -1,22 +1,31 @@
-import { useMemo } from "react";
+// src/pages/Certificates.tsx
 import { useAuth } from "../auth/AuthContext";
-import { getEventsIAttend, getClubs } from "../lib/api";
+import { getClubs, getEventsIAttend } from "../lib/api";
 import { useQuery } from "@tanstack/react-query";
+import type { EventItem } from "../types";
 
 export default function Certificates() {
   const { user } = useAuth();
+
   const clubsQ = useQuery({ queryKey: ["clubs"], queryFn: getClubs });
 
-  const items = useMemo(() => {
-    if (!user) return [];
-    try { return getEventsIAttend(user.id); } catch { return []; }
-  }, [user]);
+  // ✅ User participation in activities (backend)
+  const attendedQ = useQuery({
+    queryKey: ["my-attendances", user?.id],
+    queryFn: () => getEventsIAttend(user!.id),
+    enabled: !!user,
+  });
 
-  if (!user) return <div style={{ padding:16 }}>Giriş gerekli.</div>;
+  if (!user) return <div style={{ padding: 16 }}>Login required.</div>;
 
-  function openCertificate(title: string, clubName: string, dateStr: string, userName: string) {
+  function openCertificate(
+    title: string,
+    clubName: string,
+    dateStr: string,
+    userName: string
+  ) {
     const html = `<!doctype html>
-<html><head><meta charset="utf-8" /><title>Sertifika</title>
+<html><head><meta charset="utf-8" /><title>Certificate</title>
 <style>
   body { margin:0; background:#f8fafc; font-family: Inter, Arial, sans-serif; }
   .paper { width:900px; margin:40px auto; background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:40px; box-shadow:0 10px 40px rgba(0,0,0,.08); }
@@ -34,14 +43,14 @@ export default function Certificates() {
 <body>
   <div class="paper">
     <div class="badge">🎓</div>
-    <h1>KATILIM SERTİFİKASI</h1>
-    <h2>${userName} adlı öğrencimiz,</h2>
-    <h2><b>${clubName}</b> kulübünün <b>"${title}"</b> etkinliğine katılmıştır.</h2>
+    <h1>PARTICIPATION CERTIFICATE</h1>
+    <h2>We hereby certify that <b>${userName}</b></h2>
+    <h2>has participated in <b>"${title}"</b>, an event organized by the <b>${clubName}</b> club.</h2>
     <div class="line"></div>
-    <div class="meta">Tarih: ${dateStr}</div>
+    <div class="meta">Date: ${dateStr}</div>
     <div class="signature">
-      <div class="sign"><div>Kulüp Başkanı</div><div class="name">${clubName}</div></div>
-      <div class="sign"><div>Öğrenci</div><div class="name">${userName}</div></div>
+      <div class="sign"><div>Club President</div><div class="name">${clubName}</div></div>
+      <div class="sign"><div>Student</div><div class="name">${userName}</div></div>
     </div>
   </div>
   <script>window.print()</script>
@@ -53,37 +62,82 @@ export default function Certificates() {
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
 
-  function clubName(id: string) {
-    const c = clubsQ.data?.find(x => x.id === id);
-    return c?.name || "Kulüp";
+  function clubName(id: number) {
+    const c = clubsQ.data?.find((x) => x.id === id);
+    return c?.name || "Club";
   }
 
+  const items: EventItem[] = Array.isArray(attendedQ.data) ? attendedQ.data : [];
+
+  const loading = clubsQ.isLoading || attendedQ.isLoading;
+
   return (
-    <div style={{ padding:16 }}>
-      <h2 style={{ margin:"0 0 12px 0" }}>Sertifikalar</h2>
-      {items.length === 0 ? (
-        <div style={{ border:"1px dashed #ddd", borderRadius:12, padding:16, color:"#666" }}>
-          Henüz katıldığın bir etkinlik bulunmuyor. Home sayfasında etkinliklere “Katılıyorum” diyerek katılımlarını işaretleyebilirsin.
+    <div style={{ padding: 16 }}>
+      <h2 style={{ margin: "0 0 12px 0" }}>Certificates</h2>
+
+      {loading ? (
+        <div style={{ color: "#666" }}>Loading…</div>
+      ) : attendedQ.isError ? (
+        <div
+          style={{
+            border: "1px dashed #ddd",
+            borderRadius: 12,
+            padding: 16,
+            color: "#b91c1c",
+          }}
+        >
+          Certificates could not be loaded.
+        </div>
+      ) : items.length === 0 ? (
+        <div
+          style={{
+            border: "1px dashed #ddd",
+            borderRadius: 12,
+            padding: 16,
+            color: "#666",
+          }}
+        >
+          You have not attended any events yet. You can mark your attendance by
+          clicking “I’m attending” on events on the Home page.
         </div>
       ) : (
-        <ul style={{ listStyle:"none", padding:0, display:"grid", gap:8 }}>
-          {items.map(ev => {
+        <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 8 }}>
+          {items.map((ev) => {
             const dateStr = new Date(ev.startAt).toLocaleString();
             const cn = clubName(ev.clubId);
             return (
-              <li key={ev.id} style={{
-                border:"1px solid #eee", borderRadius:10, padding:12, boxShadow:"0 4px 16px rgba(0,0,0,.05)",
-                display:"flex", justifyContent:"space-between", alignItems:"center", gap:8
-              }}>
+              <li
+                key={ev.id}
+                style={{
+                  border: "1px solid #eee",
+                  borderRadius: 10,
+                  padding: 12,
+                  boxShadow: "0 4px 16px rgba(0,0,0,.05)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
                 <div>
-                  <div style={{ fontWeight:700 }}>{ev.title}</div>
-                  <div style={{ fontSize:13, color:"#555" }}>{cn} • {dateStr}</div>
+                  <div style={{ fontWeight: 700 }}>{ev.title}</div>
+                  <div style={{ fontSize: 13, color: "#555" }}>
+                    {cn} • {dateStr}
+                  </div>
                 </div>
+
                 <button
-                  onClick={() => openCertificate(ev.title, cn, dateStr, user.name || user.email)}
-                  style={{ padding:"6px 10px", border:"1px solid #ddd", borderRadius:8, background:"#fff" }}
+                  onClick={() =>
+                    openCertificate(ev.title, cn, dateStr, user.name || user.email)
+                  }
+                  style={{
+                    padding: "6px 10px",
+                    border: "1px solid #ddd",
+                    borderRadius: 8,
+                    background: "#fff",
+                  }}
                 >
-                  Sertifika Oluştur
+                  Generate Certificate
                 </button>
               </li>
             );

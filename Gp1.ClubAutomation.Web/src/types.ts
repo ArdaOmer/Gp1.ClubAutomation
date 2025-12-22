@@ -1,35 +1,34 @@
 export type Role = "Member" | "President";
 
 export type Membership = {
-  clubId: string;
+  clubId: number;
   role: Role;
 };
 
 export type User = {
-  id: string;
-  name: string;
+  id: number;
   email: string;
-  memberships: Membership[];
+  name?: string;
+  memberships?: Membership[];
 
-  // ⬇️ yeni profil alanları (opsiyonel)
-  department?: string;   // Bölüm
-  grade?: number;        // Sınıf (1-6 arası ör.)
-  birthDate?: string;    // ISO (YYYY-MM-DD)
-  phone?: string;        // Telefon
-  bio?: string;          // Hakkımda
+  department?: string;
+  grade?: number;
+  birthDate?: string;
+  phone?: string;
+  bio?: string;
   avatarDataUrl?: string;
 };
 
 export type Club = {
-  id: string;
+  id: number;
   name: string;
   description?: string;
   isActive: boolean;
 };
 
 export type EventItem = {
-  id: string;
-  clubId: string;
+  id: number;
+  clubId: number;
   title: string;
   description?: string;
   location?: string;
@@ -37,12 +36,12 @@ export type EventItem = {
   endAt: string;
   isPublished: boolean;
 };
+
 export type Announcement = {
-  id: string;
-  clubId: string;
+  id: number;
+  clubId: number;
   title: string;
   content?: string;
-  createdAt: string;  // ISO
+  createdAt: string;
   pinned?: boolean;
 };
-

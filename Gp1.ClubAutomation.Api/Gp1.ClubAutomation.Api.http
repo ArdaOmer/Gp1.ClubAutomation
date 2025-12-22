@@ -1,4 +1,4 @@
-@Gp1.ClubAutomation.Api_HostAddress = http://localhost:5110
+@Gp1.ClubAutomation.Api_HostAddress = http://localhost:5001
 
 GET {{Gp1.ClubAutomation.Api_HostAddress}}/weatherforecast/
 Accept: application/json

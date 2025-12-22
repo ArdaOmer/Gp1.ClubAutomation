@@ -4,46 +4,62 @@ import {
   createEvent,
   getClub,
   getEventsByClub,
-  hasRole,
   deleteEvent,
   updateEvent,
+  getMyMemberships,
+  joinClub,
+  leaveClub,
 } from "../lib/api";
 import { useState, useMemo } from "react";
-import { joinClub, leaveClub, getMyMemberships } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import { useToast } from "../components/Toast";
 import Modal from "../components/Modal";
 import { QRCodeCanvas } from "qrcode.react";
+import type { Membership, EventItem } from "../types";
 
 export default function ClubEvents() {
-  const { id = "" } = useParams(); // clubId
+  const { id } = useParams(); // clubId (string)
+  const clubId = Number(id); // ✅ convert number
+  const hasValidClubId = Number.isFinite(clubId) && clubId > 0;
+
   const qc = useQueryClient();
   const { user } = useAuth();
   const { push } = useToast();
 
-  // kulüp ve etkinlikler
+  // clubs and events
   const clubQ = useQuery({
-    queryKey: ["club", id],
-    queryFn: () => getClub(id),
+    queryKey: ["club", clubId],
+    queryFn: () => getClub(clubId),
+    enabled: hasValidClubId,
   });
 
   const eventsQ = useQuery({
-    queryKey: ["events", id],
-    queryFn: () => getEventsByClub(id),
-    enabled: !!id,
+    queryKey: ["events", clubId],
+    queryFn: () => getEventsByClub(clubId),
+    enabled: hasValidClubId,
   });
 
-  // üyelik bilgisi (başkan mıyız? üye miyiz?)
-  const myMemberships = useMemo(
-    () => (user ? getMyMemberships(user.id) : []),
-    [user]
-  );
-  const iAmMember = !!myMemberships.find((m) => m.clubId === id);
-  const iAmPresident = !!myMemberships.find(
-    (m) => m.clubId === id && m.role === "President"
+  // ✅ memberships
+  const membershipsQ = useQuery({
+    queryKey: ["myMemberships", user?.id],
+    queryFn: () => getMyMemberships(user!.id),
+    enabled: !!user,
+  });
+
+  const myMemberships: Membership[] = membershipsQ.data ?? [];
+
+  // ✅ number comparison
+  const iAmMember = useMemo(
+    () => myMemberships.some((m) => m.clubId === clubId),
+    [myMemberships, clubId]
   );
 
-  // Etkinlik oluşturma form state
+  const iAmPresident = useMemo(
+    () => myMemberships.some((m) => m.clubId === clubId && m.role === "President"),
+    [myMemberships, clubId]
+  );
+
+  // events create form state
   const [title, setTitle] = useState("");
   const [loc, setLoc] = useState("");
   const [start, setStart] = useState("");
@@ -51,7 +67,7 @@ export default function ClubEvents() {
 
   const createMut = useMutation({
     mutationFn: () =>
-      createEvent(id, {
+      createEvent(clubId, {
         title,
         location: loc,
         description: "",
@@ -63,82 +79,83 @@ export default function ClubEvents() {
       setLoc("");
       setStart("");
       setEnd("");
-      qc.invalidateQueries({ queryKey: ["events", id] });
-      push({ message: "Etkinlik oluşturuldu ✅" });
+      qc.invalidateQueries({ queryKey: ["events", clubId] });
+      push({ message: "Event created ✅" });
     },
     onError: () => {
-      push({ message: "Etkinlik oluşturulamadı", type: "error" });
+      push({ message: "Event could not be created", type: "error" });
     },
   });
 
-  // Etkinlik silme
+  // Event delete
   const deleteMut = useMutation({
-    mutationFn: (eventId: string) => deleteEvent(id, eventId),
+    mutationFn: (eventId: number) => deleteEvent(clubId, eventId),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["events", id] });
-      push({ message: "Etkinlik silindi", type: "info" });
+      qc.invalidateQueries({ queryKey: ["events", clubId] });
+      push({ message: "Event deleted", type: "info" });
     },
     onError: () => {
-      push({ message: "Silme başarısız", type: "error" });
+      push({ message: "Delete failed", type: "error" });
     },
   });
 
-  // Etkinlik düzenleme (küçük patch için, örn başlık değişimi)
+  // Event edit
   const patchMut = useMutation({
-    mutationFn: (payload: { eventId: string; nextTitle: string }) =>
-      updateEvent(id, payload.eventId, { title: payload.nextTitle }),
+    mutationFn: (payload: { eventId: number; nextTitle: string }) =>
+      updateEvent(clubId, payload.eventId, { title: payload.nextTitle }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["events", id] });
-      push({ message: "Etkinlik güncellendi ✅" });
+      qc.invalidateQueries({ queryKey: ["events", clubId] });
+      push({ message: "Event updated ✅" });
     },
     onError: () => {
-      push({ message: "Güncelleme başarısız", type: "error" });
+      push({ message: "Update failed", type: "error" });
     },
   });
 
   // === QR MODAL STATE ===
-  // hangi etkinlik için QR göstereceğiz?
-  const [qrEventId, setQrEventId] = useState<string | null>(null);
+  const [qrEventId, setQrEventId] = useState<number | null>(null);
 
-  const qrEvent = useMemo(() => {
-    if (!qrEventId || !eventsQ.data) return null;
-    return eventsQ.data.find((e) => e.id === qrEventId) || null;
+  const qrEvent: EventItem | null = useMemo(() => {
+    if (qrEventId == null || !eventsQ.data) return null;
+    return (eventsQ.data ?? []).find((e: EventItem) => e.id === qrEventId) ?? null;
   }, [qrEventId, eventsQ.data]);
 
-  // QR kodun içine ne koyacağız?
-  // Şimdilik mock: "checkin|<eventId>|<userId?>"
-  // Gerçekte bu token backend tarafından verilir.
-  const qrValue = qrEvent
-    ? `checkin|${qrEvent.id}|club=${id}`
-    : "";
+  const qrValue = qrEvent ? `checkin|${qrEvent.id}|club=${clubId}` : "";
+
+  // invalid id
+  if (!hasValidClubId) {
+    return <div style={{ padding: 16 }}>Invalid club id.</div>;
+  }
 
   if (clubQ.isLoading) {
-    return <div style={{ padding: 16 }}>Yükleniyor…</div>;
+    return <div style={{ padding: 16 }}>Loading…</div>;
   }
   if (!clubQ.data) {
-    return <div style={{ padding: 16 }}>Kulüp bulunamadı.</div>;
+    return <div style={{ padding: 16 }}>Club not found.</div>;
   }
 
   const club = clubQ.data;
 
   return (
     <div style={{ padding: 16 }}>
-      <h2 style={{ marginBottom: 6 }}>
-        {club.name} — Etkinlikler
-      </h2>
+      <h2 style={{ marginBottom: 6 }}>{club.name} — Events</h2>
       <div style={{ fontSize: 13, color: "#666", marginBottom: 12 }}>
-        {club.description || "Açıklama yok"}
+        {club.description || "No description"}
       </div>
 
-      {/* Üyelik butonu (katıl / ayrıl) */}
+      {/* Join/Leave button */}
       {user && (
         <div style={{ marginBottom: 16 }}>
           {!iAmMember ? (
             <button
-              onClick={() => {
-                joinClub(user.id, id);
-                qc.invalidateQueries({ queryKey: ["club", id] });
-                push({ message: "Kulübe katıldın ✅" });
+              onClick={async () => {
+                try {
+                  await joinClub(user.id, clubId);
+                  qc.invalidateQueries({ queryKey: ["myMemberships", user.id] });
+                  push({ message: "You joined the club ✅" });
+                } catch {
+                  push({ message: "Join failed", type: "error" });
+                }
               }}
               style={{
                 padding: "6px 10px",
@@ -150,14 +167,18 @@ export default function ClubEvents() {
                 fontWeight: 500,
               }}
             >
-              Kulübe Katıl
+              Join Club
             </button>
           ) : (
             <button
-              onClick={() => {
-                leaveClub(user.id, id);
-                qc.invalidateQueries({ queryKey: ["club", id] });
-                push({ message: "Kulüpten ayrıldın", type: "info" });
+              onClick={async () => {
+                try {
+                  await leaveClub(user.id, clubId);
+                  qc.invalidateQueries({ queryKey: ["myMemberships", user.id] });
+                  push({ message: "You left the club", type: "info" });
+                } catch {
+                  push({ message: "Leave failed", type: "error" });
+                }
               }}
               style={{
                 padding: "6px 10px",
@@ -168,13 +189,13 @@ export default function ClubEvents() {
                 fontWeight: 500,
               }}
             >
-              Kulüpten Ayrıl
+              Leave Club
             </button>
           )}
         </div>
       )}
 
-      {/* Yeni etkinlik oluşturma formu - SADECE BAŞKANA */}
+      {/* New event create form - ONLY FOR PRESIDENT */}
       {iAmPresident && (
         <div
           style={{
@@ -189,44 +210,28 @@ export default function ClubEvents() {
           }}
         >
           <input
-            placeholder="Başlık"
+            placeholder="Title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            style={{
-              padding: 8,
-              border: "1px solid #ddd",
-              borderRadius: 8,
-            }}
+            style={{ padding: 8, border: "1px solid #ddd", borderRadius: 8 }}
           />
           <input
-            placeholder="Konum"
+            placeholder="Location"
             value={loc}
             onChange={(e) => setLoc(e.target.value)}
-            style={{
-              padding: 8,
-              border: "1px solid #ddd",
-              borderRadius: 8,
-            }}
+            style={{ padding: 8, border: "1px solid #ddd", borderRadius: 8 }}
           />
           <input
             type="datetime-local"
             value={start}
             onChange={(e) => setStart(e.target.value)}
-            style={{
-              padding: 8,
-              border: "1px solid #ddd",
-              borderRadius: 8,
-            }}
+            style={{ padding: 8, border: "1px solid #ddd", borderRadius: 8 }}
           />
           <input
             type="datetime-local"
             value={end}
             onChange={(e) => setEnd(e.target.value)}
-            style={{
-              padding: 8,
-              border: "1px solid #ddd",
-              borderRadius: 8,
-            }}
+            style={{ padding: 8, border: "1px solid #ddd", borderRadius: 8 }}
           />
 
           <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8 }}>
@@ -243,18 +248,18 @@ export default function ClubEvents() {
                 cursor: "pointer",
               }}
             >
-              {createMut.isPending ? "Ekleniyor..." : "Etkinlik Ekle"}
+              {createMut.isPending ? "Adding..." : "Add Event"}
             </button>
           </div>
         </div>
       )}
 
-      {/* Etkinlik listesi */}
+      {/* Event List */}
       {eventsQ.isLoading ? (
-        "Yükleniyor..."
+        "Loading..."
       ) : (
         <ul style={{ display: "grid", gap: 8, marginTop: 8, listStyle: "none", padding: 0 }}>
-          {(eventsQ.data ?? []).map((e) => (
+          {(eventsQ.data ?? []).map((e: EventItem) => (
             <li
               key={e.id}
               style={{
@@ -276,22 +281,12 @@ export default function ClubEvents() {
                 <div style={{ flex: "1 1 auto" }}>
                   <div style={{ fontWeight: 600 }}>{e.title}</div>
                   <div style={{ fontSize: 13, color: "#555" }}>
-                    {new Date(e.startAt).toLocaleString()} –{" "}
-                    {new Date(e.endAt).toLocaleString()}
+                    {new Date(e.startAt).toLocaleString()} – {new Date(e.endAt).toLocaleString()}
                     {e.location ? ` | ${e.location}` : ""}
                   </div>
                 </div>
 
-                {/* Buton grubu */}
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 6,
-                    justifyContent: "flex-end",
-                  }}
-                >
-                  {/* QR Kod Göster - SADECE BAŞKAN GÖRSÜN */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "flex-end" }}>
                   {iAmPresident && (
                     <button
                       onClick={() => setQrEventId(e.id)}
@@ -303,20 +298,16 @@ export default function ClubEvents() {
                         cursor: "pointer",
                         fontWeight: 500,
                       }}
-                      title="Yoklama için giriş QR kodunu göster"
+                      title="Show check-in QR code for attendance"
                     >
-                      QR Kod
+                      QR Code
                     </button>
                   )}
 
-                  {/* Etkinlik Düzenle - Başkan */}
                   {iAmPresident && (
                     <button
                       onClick={() => {
-                        const newTitle = window.prompt(
-                          "Yeni başlık:",
-                          e.title
-                        );
+                        const newTitle = window.prompt("New title:", e.title);
                         if (!newTitle) return;
                         patchMut.mutate({ eventId: e.id, nextTitle: newTitle });
                       }}
@@ -329,16 +320,14 @@ export default function ClubEvents() {
                         fontWeight: 500,
                       }}
                     >
-                      Düzenle
+                      Edit
                     </button>
                   )}
 
-                  {/* Etkinlik Sil - Başkan */}
                   {iAmPresident && (
                     <button
                       onClick={() => {
-                        if (!window.confirm("Bu etkinlik silinsin mi?"))
-                          return;
+                        if (!window.confirm("Delete this event?")) return;
                         deleteMut.mutate(e.id);
                       }}
                       style={{
@@ -351,7 +340,7 @@ export default function ClubEvents() {
                         fontWeight: 500,
                       }}
                     >
-                      Sil
+                      Delete
                     </button>
                   )}
                 </div>
@@ -359,24 +348,17 @@ export default function ClubEvents() {
             </li>
           ))}
 
-          {eventsQ.data?.length === 0 && (
-            <div>Henüz etkinlik yok.</div>
-          )}
+          {eventsQ.data?.length === 0 && <div>No events yet.</div>}
         </ul>
       )}
 
       {/* === QR MODAL === */}
-      <Modal
-        open={!!qrEvent}
-        onClose={() => setQrEventId(null)}
-        title="Etkinlik Giriş QR"
-      >
+      <Modal open={!!qrEvent} onClose={() => setQrEventId(null)} title="Event Check-in QR">
         {qrEvent ? (
           <div style={{ display: "grid", placeItems: "center", gap: 12 }}>
             <div style={{ fontWeight: 600 }}>{qrEvent.title}</div>
             <div style={{ fontSize: 12, color: "#555" }}>
-              {new Date(qrEvent.startAt).toLocaleString()} -
-              {new Date(qrEvent.endAt).toLocaleString()}
+              {new Date(qrEvent.startAt).toLocaleString()} - {new Date(qrEvent.endAt).toLocaleString()}
             </div>
 
             <div
@@ -389,23 +371,11 @@ export default function ClubEvents() {
                 background: "#fff",
               }}
             >
-              <QRCodeCanvas
-                value={qrValue}
-                size={180}
-                includeMargin={true}
-              />
+              <QRCodeCanvas value={qrValue} size={180} includeMargin={true} />
             </div>
 
-            <div
-              style={{
-                fontSize: 12,
-                color: "#666",
-                lineHeight: 1.4,
-                maxWidth: 260,
-              }}
-            >
-              Kapı görevlisi bu kodu öğrencilerin telefonuna
-              taratıp yoklama alabilir. (Demo)
+            <div style={{ fontSize: 12, color: "#666", lineHeight: 1.4, maxWidth: 260 }}>
+              The door attendant can scan this code on students' phones to take attendance. (Demo)
             </div>
           </div>
         ) : null}

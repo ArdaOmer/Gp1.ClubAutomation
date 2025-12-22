@@ -1,12 +1,29 @@
 using System.Text;
-using Gp1.ClubAutomation.Infrastructure.Persistence;
+using System.Text.Json.Serialization;
+using Gp1.ClubAutomation.Application.Interfaces;
 using Gp1.ClubAutomation.Infrastructure.Security;
-using Gp1.ClubAutomation.Application.Services;
+using Gp1.ClubAutomation.Infrastructure;
+using Gp1.ClubAutomation.Infrastructure.Context;
+using Gp1.ClubAutomation.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:5173") // 👈 Frontend adresin
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials(); // 👈 ÖNEMLİ: withCredentials'ı destekler
+    });
+});
+
 
 // =============================
 //  Database Configuration (PostgreSQL)
@@ -48,6 +65,20 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<JwtTokenGenerator>();
 builder.Services.AddScoped<AuthService>();
 
+builder.Services.AddScoped<IEventService, EventService>();
+builder.Services.AddScoped<IClubService, ClubService>();
+builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
+builder.Services.AddScoped<IMembershipService, MembershipService>();
+builder.Services.AddScoped<IAttendanceService, AttendanceService>();
+builder.Services.AddScoped<IUserService, UserService>();
+
+
+builder.Services.AddControllers()
+    .AddJsonOptions(o =>
+    {
+        o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -67,9 +98,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-app.UseAuthentication(); // 🔐 Token doğrulama
-app.UseAuthorization();  // 🔐 Yetkilendirme
+app.UseCors("AllowFrontend");
+app.UseAuthentication(); // 🔐 Token verification
+app.UseAuthorization();  // 🔐 Authorization
 
 app.MapControllers();
 

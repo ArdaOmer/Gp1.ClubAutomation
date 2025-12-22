@@ -1,20 +1,24 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/AuthContext";
-import { getMyMemberships, updateMe, getClubs } from "../lib/api";
+import { getMyMemberships, getClubs, updateMe } from "../lib/api";
 import { useQuery } from "@tanstack/react-query";
+import type { Membership } from "../types";
 
-/* === İSİM DOĞRULAMA ===
-   Türkçe harfler (A–Z + ÇĞİÖŞÜ çğıöşü), boşluk, tire (-) ve tipografik apostrof (’) serbest.
-   2–50 karakter arası. Rakam ve diğer semboller yok.
+/*
+=== NAME VERIFICATION ===
+Turkish characters (A–Z + ÇĞİÖŞÜ çğıöşü), spaces, hyphens (-) and typographic apostrophes (’) are allowed.
+2–50 characters. Numbers and other symbols are not allowed.
 */
+
 const NAME_PATTERN = /^[A-Za-zÇĞİÖŞÜçğıöşü\s'-]{2,50}$/u;
 
 function normalizeName(raw: string) {
   return raw
     .trim()
-    .replace(/\s+/g, " ")     // birden fazla boşluk -> tek boşluk
-    .replace(/\s*-\s*/g, "-") // - çevresindeki boşlukları kaldır
-    .replace(/\s*'\s*/g, "’"); // düz apostrof -> tipografik ’
+    .replace(/\s+/g, " ") // multiple spaces -> single space
+    .replace(/\s*-\s*/g, "-") // - remove the spaces around it
+    .replace(/\s*'\s*/g, "’"); // plain apostrophe -> typographic '
 }
 
 function isValidName(v: string) {
@@ -32,15 +36,19 @@ function readFileAsDataURL(file: File): Promise<string> {
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
-  const [name, setName] = useState(user?.name ?? "");
+
+  // We read from "any" so that we can keep these fields in the FE even if they don't exist in the user type.
+  const u = user as any;
+
+  const [name, setName] = useState(u?.name ?? "");
   const [nameError, setNameError] = useState<string | null>(null);
 
-  const [department, setDepartment] = useState(user?.department ?? "");
-  const [grade, setGrade] = useState<number | "">((user?.grade as number) ?? "");
-  const [birthDate, setBirthDate] = useState(user?.birthDate ?? "");
-  const [phone, setPhone] = useState(user?.phone ?? "");
-  const [bio, setBio] = useState(user?.bio ?? "");
-  const [avatar, setAvatar] = useState<string | undefined>(user?.avatarDataUrl);
+  const [department, setDepartment] = useState(u?.department ?? "");
+  const [grade, setGrade] = useState<number | "">(typeof u?.grade === "number" ? u.grade : "");
+  const [birthDate, setBirthDate] = useState(u?.birthDate ?? "");
+  const [phone, setPhone] = useState(u?.phone ?? "");
+  const [bio, setBio] = useState(u?.bio ?? "");
+  const [avatar, setAvatar] = useState<string | undefined>(u?.avatarDataUrl);
   const [avatarErr, setAvatarErr] = useState<string | null>(null);
 
   const [saving, setSaving] = useState(false);
@@ -49,28 +57,36 @@ export default function Profile() {
 
   const clubsQ = useQuery({ queryKey: ["clubs"], queryFn: getClubs });
 
+  // ✅ Asynchronously retrieve memberships (the old bug was causing this)
+  const membershipsQ = useQuery({
+    queryKey: ["memberships", user?.id],
+    queryFn: () => getMyMemberships(user!.id),
+    enabled: !!user,
+  });
+
+  const memberships: Membership[] = Array.isArray(membershipsQ.data) ? membershipsQ.data : [];
+
   useEffect(() => {
     if (!user) return;
-    setName(user.name ?? "");
-    setDepartment(user.department ?? "");
-    setGrade((user.grade as number) ?? "");
-    setBirthDate(user.birthDate ?? "");
-    setPhone(user.phone ?? "");
-    setBio(user.bio ?? "");
-    setAvatar(user.avatarDataUrl);
+    const uu = user as any;
+    setName(uu.name ?? "");
+    setDepartment(uu.department ?? "");
+    setGrade(typeof uu.grade === "number" ? uu.grade : "");
+    setBirthDate(uu.birthDate ?? "");
+    setPhone(uu.phone ?? "");
+    setBio(uu.bio ?? "");
+    setAvatar(uu.avatarDataUrl);
   }, [user]);
 
-  if (!user) return <div style={{ padding: 16 }}>Giriş gerekli.</div>;
-
-  const memberships = getMyMemberships(user.id);
+  if (!user) return <div style={{ padding: 16 }}>Login required.</div>;
 
   const clubNameMap = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<number, string>();
     (clubsQ.data ?? []).forEach((c) => map.set(c.id, c.name));
     return map;
   }, [clubsQ.data]);
 
-  // --- Basit doğrulamalar (isim doğrulaması regex ile) ---
+  // --- Simple verifications ---
   const nameValid = isValidName(normalizeName(name));
   const gradeValid = grade === "" || (typeof grade === "number" && grade >= 1 && grade <= 6);
   const birthValid = !birthDate || new Date(birthDate) <= new Date();
@@ -81,24 +97,25 @@ export default function Profile() {
     e.preventDefault();
     setErrMsg(null);
 
-    // İSİM: normalize + son kontrol
     const n = normalizeName(name);
     setName(n);
+
     if (!isValidName(n)) {
-      setNameError("Sadece harfler, boşluk, - ve ’ kullanılabilir (2–50 karakter).");
-      setErrMsg("Lütfen formu kontrol edin.");
+      setNameError("Only letters, spaces, - and ’ are allowed (2–50 characters).");
+      setErrMsg("Please check the form.");
       return;
     } else {
       setNameError(null);
     }
 
     if (!formValid) {
-      setErrMsg("Lütfen formu kontrol edin.");
+      setErrMsg("Please check the form.");
       return;
     }
 
     setSaving(true);
     setMsg(null);
+
     try {
       const payload = {
         name: n,
@@ -109,36 +126,42 @@ export default function Profile() {
         bio: bio?.trim() || undefined,
         avatarDataUrl: avatar || undefined,
       };
+
       const updated = await updateMe(payload);
-      updateUser(updated); // state + localStorage senkron
-      setMsg("Profil güncellendi.");
+
+      // ✅ push user from backend to state + localStorage
+      updateUser(updated);
+
+      setMsg("Profile updated.");
     } catch {
-      setErrMsg("Kaydetme sırasında bir sorun oluştu.");
+      setErrMsg("Something went wrong while saving.");
     } finally {
       setSaving(false);
       setTimeout(() => setMsg(null), 2000);
     }
   };
 
-  const initials = (user.name || user.email || "?").split(" ")[0].slice(0, 2).toUpperCase();
+  const initials = (u?.name || u?.email || "?").split(" ")[0].slice(0, 2).toUpperCase();
 
   async function onAvatarChange(f: File | undefined) {
     setAvatarErr(null);
     if (!f) return;
+
     const okTypes = ["image/png", "image/jpeg", "image/jpg"];
     if (!okTypes.includes(f.type)) {
-      setAvatarErr("Sadece PNG veya JPG yükleyin.");
+      setAvatarErr("Please upload only PNG or JPG.");
       return;
     }
     if (f.size > 1.5 * 1024 * 1024) {
-      setAvatarErr("Dosya boyutu 1.5 MB'ı geçmemeli.");
+      setAvatarErr("File size must not exceed 1.5 MB.");
       return;
     }
+
     try {
       const dataUrl = await readFileAsDataURL(f);
       setAvatar(dataUrl);
     } catch {
-      setAvatarErr("Görsel okunamadı.");
+      setAvatarErr("Image could not be read.");
     }
   }
 
@@ -148,7 +171,7 @@ export default function Profile() {
 
   return (
     <div style={{ padding: 16, maxWidth: 880, margin: "0 auto" }}>
-      {/* Üst başlık + avatar */}
+      {/* Header + avatar */}
       <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 16 }}>
         <div
           style={{
@@ -170,23 +193,15 @@ export default function Profile() {
           )}
         </div>
         <div>
-          <h2 style={{ margin: 0 }}>Profilim</h2>
-          <div style={{ fontSize: 13, color: "#666" }}>{user.email}</div>
+          <h2 style={{ margin: 0 }}>My Profile</h2>
+          <div style={{ fontSize: 13, color: "#666" }}>{u?.email}</div>
         </div>
       </div>
 
-      {/* Avatar yükleme alanı */}
+      {/* Upload avatar */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 16 }}>
-        <label
-          style={{
-            padding: "8px 12px",
-            border: "1px solid #ddd",
-            borderRadius: 8,
-            cursor: "pointer",
-            background: "#fff",
-          }}
-        >
-          Fotoğraf Yükle
+        <label style={{ padding: "8px 12px", border: "1px solid #ddd", borderRadius: 8, cursor: "pointer", background: "#fff" }}>
+          Upload Photo
           <input
             type="file"
             accept="image/png,image/jpeg"
@@ -194,48 +209,41 @@ export default function Profile() {
             onChange={(e) => onAvatarChange(e.target.files?.[0])}
           />
         </label>
+
         {avatar && (
-          <button
-            onClick={clearAvatar}
-            style={{ padding: "8px 12px", border: "1px solid #ddd", borderRadius: 8, background: "#fff" }}
-          >
-            Kaldır
+          <button onClick={clearAvatar} style={{ padding: "8px 12px", border: "1px solid #ddd", borderRadius: 8, background: "#fff" }}>
+            Remove
           </button>
         )}
+
         {avatarErr && <span style={{ color: "#b91c1c", fontSize: 12 }}>{avatarErr}</span>}
       </div>
 
-      {/* Profil formu */}
+      {/* Profile form */}
       <form
         onSubmit={onSubmit}
         style={{ display: "grid", gap: 12, marginBottom: 20, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}
       >
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Ad Soyad</span>
+          <span>Full Name</span>
           <input
             value={name}
             onChange={(e) => {
               const v = e.target.value;
               setName(v);
-              if (v.length === 0) {
-                setNameError("İsim zorunludur.");
-              } else if (!isValidName(normalizeName(v))) {
-                setNameError("Sadece harfler, boşluk, - ve ’ kullanılabilir (2–50 karakter).");
-              } else {
-                setNameError(null);
-              }
+              if (v.length === 0) setNameError("Name is required.");
+              else if (!isValidName(normalizeName(v)))
+                setNameError("Only letters, spaces, - and ’ are allowed (2–50 characters).");
+              else setNameError(null);
             }}
             onBlur={() => {
               const n = normalizeName(name);
               setName(n);
-              if (!isValidName(n)) {
-                setNameError("Lütfen geçerli bir isim girin (sadece harfler, boşluk, - ve ’).");
-              } else {
-                setNameError(null);
-              }
+              if (!isValidName(n)) setNameError("Please enter a valid name (letters, spaces, - and ’ only).");
+              else setNameError(null);
             }}
             style={{ padding: 10, border: `1px solid ${nameError ? "#ef4444" : "#ddd"}`, borderRadius: 8 }}
-            placeholder="Örn: Ömer"
+            placeholder="e.g., Omer"
             required
             inputMode="text"
             autoComplete="name"
@@ -244,57 +252,53 @@ export default function Profile() {
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>E-posta</span>
-          <input
-            value={user.email}
-            readOnly
-            style={{ padding: 10, border: "1px solid #eee", borderRadius: 8, background: "#fafafa" }}
-          />
+          <span>Email</span>
+          <input value={u?.email} readOnly style={{ padding: 10, border: "1px solid #eee", borderRadius: 8, background: "#fafafa" }} />
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Bölüm</span>
+          <span>Department</span>
           <input
             value={department}
             onChange={(e) => setDepartment(e.target.value)}
             style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8 }}
-            placeholder="Örn: Bilgisayar Mühendisliği"
+            placeholder="e.g., Computer Engineering"
           />
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Sınıf</span>
+          <span>Grade</span>
           <select
             value={grade === "" ? "" : String(grade)}
             onChange={(e) => setGrade(e.target.value ? parseInt(e.target.value) : "")}
             style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8, background: "#fff" }}
           >
-            <option value="">Seçilmedi</option>
-            <option value="1">1. Sınıf</option>
-            <option value="2">2. Sınıf</option>
-            <option value="3">3. Sınıf</option>
-            <option value="4">4. Sınıf</option>
-            <option value="5">5. Sınıf</option>
-            <option value="6">6. Sınıf</option>
-            <option value="7">Hazırlık</option>
-            <option value="8">Yüksek Lisans</option>
+            <option value="">Not selected</option>
+            <option value="1">1st Year</option>
+            <option value="2">2nd Year</option>
+            <option value="3">3rd Year</option>
+            <option value="4">4th Year</option>
+            <option value="5">5th Year</option>
+            <option value="6">6th Year</option>
+            <option value="7">Preparatory</option>
+            <option value="8">Master’s</option>
           </select>
-          {!gradeValid && <span style={{ color: "#b91c1c", fontSize: 12 }}>Sınıf 1–6 arası olmalı.</span>}
+          {!gradeValid && <span style={{ color: "#b91c1c", fontSize: 12 }}>Grade must be between 1–6.</span>}
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Doğum Tarihi</span>
-        <input
+          <span>Date of Birth</span>
+          <input
             type="date"
             value={birthDate || ""}
             onChange={(e) => setBirthDate(e.target.value)}
             style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8 }}
           />
-          {!birthValid && <span style={{ color: "#b91c1c", fontSize: 12 }}>Gelecek tarih olamaz.</span>}
+          {!birthValid && <span style={{ color: "#b91c1c", fontSize: 12 }}>Date cannot be in the future.</span>}
         </label>
 
         <label style={{ display: "grid", gap: 6 }}>
-          <span>Telefon</span>
+          <span>Phone</span>
           <input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
@@ -303,19 +307,19 @@ export default function Profile() {
           />
           {!phoneValid && (
             <span style={{ color: "#b91c1c", fontSize: 12 }}>
-              Geçerli bir GSM numarası girin (örn: +905321234567 / 05321234567).
+              Enter a valid mobile number (e.g., +905321234567 / 05321234567).
             </span>
           )}
         </label>
 
         <label style={{ display: "grid", gap: 6, gridColumn: "1 / -1" }}>
-          <span>Hakkımda</span>
+          <span>About Me</span>
           <textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             rows={4}
             style={{ padding: 10, border: "1px solid #ddd", borderRadius: 8, resize: "vertical" }}
-            placeholder="Kısaca kendinden bahsedebilirsin…"
+            placeholder="You can briefly introduce yourself…"
           />
         </label>
 
@@ -331,26 +335,27 @@ export default function Profile() {
               cursor: formValid ? "pointer" : "not-allowed",
             }}
           >
-            {saving ? "Kaydediliyor..." : "Kaydet"}
+            {saving ? "Saving..." : "Save"}
           </button>
           {msg && <span style={{ fontSize: 13, color: "#10b981" }}>{msg}</span>}
           {errMsg && <span style={{ fontSize: 13, color: "#b91c1c" }}>{errMsg}</span>}
         </div>
       </form>
 
-      {/* Üyelikler */}
+      {/* Memberships */}
       <section>
-        <h3 style={{ marginTop: 0 }}>Üyeliklerim</h3>
+        <h3 style={{ marginTop: 0 }}>My Memberships</h3>
 
-        {clubsQ.isLoading ? (
-          <div style={{ color: "#666" }}>Kulüpler yükleniyor…</div>
+        {clubsQ.isLoading || membershipsQ.isLoading ? (
+          <div style={{ color: "#666" }}>Loading…</div>
         ) : memberships.length === 0 ? (
-          <div style={{ color: "#666" }}>Herhangi bir kulübe üye değilsin.</div>
+          <div style={{ color: "#666" }}>You are not a member of any club.</div>
         ) : (
           <ul style={{ display: "grid", gap: 8, listStyle: "none", padding: 0 }}>
             {memberships.map((m) => {
-              const clubName = clubNameMap.get(m.clubId) || `Kulüp (${m.clubId.slice(0, 6)}…)`;
+              const clubName = clubNameMap.get(m.clubId) || `Club (${m.clubId})`;
               const isPresident = m.role === "President";
+
               return (
                 <li
                   key={m.clubId}

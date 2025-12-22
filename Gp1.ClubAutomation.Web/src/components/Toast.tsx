@@ -50,9 +50,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 };
 
-// Güvenli fallback: Provider yoksa no-op döner, UYGULAMA ÇÖKMEZ
+// Safe fallback: Returns no-op if provider is absent, APPLICATION WILL NOT CRASH.
 export function useToast(): ToastCtx {
   const v = useContext(Ctx);
-  if (!v) return { push: () => {} };
+  if (!v) return { push: () => { } };
   return v;
 }

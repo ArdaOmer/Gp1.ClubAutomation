@@ -1,43 +1,28 @@
-﻿using Gp1.ClubAutomation.Domain.Entities;
+﻿using Gp1.ClubAutomation.Domain.Entities.Club;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Gp1.ClubAutomation.Infrastructure.Persistence.Configurations
+namespace Gp1.ClubAutomation.Infrastructure.Persistence.Configurations.Club
 {
     public class EventConfiguration : IEntityTypeConfiguration<Event>
     {
-        public void Configure(EntityTypeBuilder<Event> entity)
+        public void Configure(EntityTypeBuilder<Event> builder)
         {
-            entity.ToTable("Events", "club");
+            builder.ToTable("Events");
 
-            entity.HasKey(e => e.Id);
+            builder.HasKey(x => x.Id);
 
-            entity.Property(e => e.Title)
+            builder.Property(x => x.Title)
                 .IsRequired()
-                .HasMaxLength(150);
-
-            entity.Property(e => e.Description)
-                .HasMaxLength(500);
-
-            entity.Property(e => e.Location)
                 .HasMaxLength(200);
 
-            entity.Property(e => e.StartDate)
-                .IsRequired();
+            builder.Property(x => x.Location)
+                .HasMaxLength(200);
 
-            entity.Property(e => e.EndDate)
-                .IsRequired();
-
-            // İlişki: Club -> Events (1-N)
-            entity.HasOne(e => e.Club)
-                .WithMany(c => c.Events)
-                .HasForeignKey(e => e.ClubId)
+            builder.HasOne(x => x.Club)
+                .WithMany(x => x.Events)
+                .HasForeignKey(x => x.ClubId)
                 .OnDelete(DeleteBehavior.Cascade);
-
-            // BaseEntity varsayılan değerleri
-            entity.Property(e => e.IsActive).HasDefaultValue(true);
-            entity.Property(e => e.IsDeleted).HasDefaultValue(false);
-            entity.Property(e => e.CreatedDate).IsRequired();
         }
     }
 }

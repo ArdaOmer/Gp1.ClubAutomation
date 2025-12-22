@@ -10,6 +10,7 @@ namespace Gp1.ClubAutomation.Infrastructure.Security
     public class JwtTokenGenerator
     {
         private readonly IConfiguration _config;
+
         public JwtTokenGenerator(IConfiguration config)
         {
             _config = config;
@@ -21,9 +22,14 @@ namespace Gp1.ClubAutomation.Infrastructure.Security
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Key"]!));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var claims = new[]
+            var claims = new List<Claim>
             {
+                // ID information is added under different claim names.
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+                new Claim("id", user.Id.ToString()),
+
+                // User information
                 new Claim(JwtRegisteredClaimNames.Email, user.Email),
                 new Claim("username", user.Username),
                 new Claim("isAdmin", user.IsAdmin.ToString())

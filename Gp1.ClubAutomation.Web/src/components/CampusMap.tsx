@@ -4,46 +4,49 @@ import { useQuery } from "@tanstack/react-query";
 import { getUpcomingEventsForUser, getClubs } from "../lib/api";
 import type { Club, EventItem } from "../types";
 
+const campusMap = "/campus-map.png";
 
- const campusMap = "/campus-map.png";
-
-// === HARİTA ÜZERİ KONUM EŞLEME ===
-// xPct / yPct DEĞERLERİ % (0–100) OLARAK VERİLİR (responsive çalışır)
+// === MAP LOCATION MATCHING ===
+// xPct / yPct VALUES ARE GIVEN AS % (0–100) (works responsively)
 type Pos = { xPct: number; yPct: number; label?: string };
 const locationMap: Record<string, Pos> = {
-  "A Blok": { xPct: 10, yPct: 72, label: "A Blok" },
-  "Gençlik Merkezi": { xPct: 64, yPct: 58, label: "Gençlik Merkezi" },
-  "Kütüphane": { xPct: 53, yPct: 74, label: "Kütüphane" },
-  "Stadyum": { xPct: 97, yPct: 43, label: "Stadyum" },
-  "Spor Salonu":{xPct:78,yPct:90,label:"Spor Salonu"},
-  "Konferans Salonu": { xPct: 29, yPct: 36, label: "Konferans Salonu" },
-  "Cey Park": {xPct:42,yPct:68,label:"Cey Park"},
-  // İstediğin kadar ekleyebilirsin…
+  "A Blok": { xPct: 10, yPct: 72, label: "A Block" },
+  "Gençlik Merkezi": { xPct: 64, yPct: 58, label: "Youth Center" },
+  "Kütüphane": { xPct: 53, yPct: 74, label: "Library" },
+  "Stadyum": { xPct: 97, yPct: 43, label: "Stadium" },
+  "Spor Salonu": { xPct: 78, yPct: 90, label: "Sports Hall" },
+  "Konferans Salonu": { xPct: 29, yPct: 36, label: "Conference Hall" },
+  "Cey Park": { xPct: 42, yPct: 68, label: "Cey Park" },
+  // You can add as much as you want…
 };
 
-// Geliştirici modu: Haritaya tıklayınca % koordinatlarını konsola yazar.
-// İstersen .env’de VITE_MAP_DEV_CLICK="1" yaparsın, yoksa false kalır.
+// Developer mode: When you click on the map, it writes the % coordinates to the console.
+// You can optionally set VITE_MAP_DEV_CLICK="1" in the .env file; otherwise, it will remain false.
 const DEV_CLICK = import.meta.env.VITE_MAP_DEV_CLICK === "1";
 
-export default function CampusMap({ userId }: { userId: string }) {
+export default function CampusMap({ userId }: { userId: number }) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
-  // Etkinlikler (30 gün) ve kulüp isimleri
+  // Events (30 days) and club names
   const eventsQ = useQuery({
     queryKey: ["map_events", userId],
     queryFn: () => getUpcomingEventsForUser(userId, 30),
-    enabled: !!userId,
+    enabled: Number.isFinite(userId),
   });
+
   const clubsQ = useQuery({ queryKey: ["clubs"], queryFn: getClubs });
 
   const [hovered, setHovered] = useState<EventItem | null>(null);
 
-  const clubName = (cid: string) =>
-    clubsQ.data?.find((c: Club) => c.id === cid)?.name ?? "Kulüp";
+  const clubName = (cid: number) =>
+    clubsQ.data?.find((c: Club) => c.id === cid)?.name ?? "Club";
 
-  // location alanı locationMap’te olan etkinlikleri al
+  // The location field retrieves events that are on LocationMap.
   const mappedEvents = useMemo(
-    () => (eventsQ.data ?? []).filter((e) => !!e.location && !!locationMap[e.location!]),
+    () =>
+      (eventsQ.data ?? []).filter(
+        (e) => !!e.location && !!locationMap[e.location!]
+      ),
     [eventsQ.data]
   );
 
@@ -52,25 +55,33 @@ export default function CampusMap({ userId }: { userId: string }) {
     const rect = wrapRef.current.getBoundingClientRect();
     const xPct = ((e.clientX - rect.left) / rect.width) * 100;
     const yPct = ((e.clientY - rect.top) / rect.height) * 100;
-    // Koordinatı konsola bas (kopyalayıp locationMap’e eklemen için)
+    // Print the coordinates to the console (so you can copy and add them to locationMap).
     console.log(`{ xPct: ${xPct.toFixed(2)}, yPct: ${yPct.toFixed(2)} }`);
   }
 
   return (
     <section style={{ border: "1px solid #eee", borderRadius: 12, padding: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        <h3 style={{ margin: 0 }}>🗺️ Kampüs Haritası</h3>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginBottom: 12,
+        }}
+      >
+        <h3 style={{ margin: 0 }}>🗺️ Campus Map</h3>
         <span style={{ fontSize: 12, color: "#666" }}>
-          (Konum bilgisi girilen etkinlikler harita üzerinde gösterilir)
+          (Events that include location information will be shown on the map)
         </span>
       </div>
 
       {eventsQ.isLoading ? (
-        <div>Etkinlikler yükleniyor…</div>
+        <div>Loading events…</div>
       ) : mappedEvents.length === 0 ? (
         <div style={{ color: "#666" }}>
-          Yer bilgisi bulunan yaklaşan etkinlik yok. Etkinlik eklerken
-          <b> location</b> olarak <i>A Blok, B Blok, Kütüphane…</i> gibi tanımları kullan.
+          There are no upcoming events with a location. When creating an event,
+          use definitions like <i>A Blok, B Blok, Kütüphane…</i> for the{" "}
+          <b>location</b> field.
         </div>
       ) : (
         <div
@@ -86,15 +97,15 @@ export default function CampusMap({ userId }: { userId: string }) {
             boxShadow: "0 4px 16px rgba(0,0,0,.06)",
           }}
         >
-          {/* Harita görseli */}
+          {/* Map image */}
           <img
             src={campusMap}
-            alt="Kampüs Haritası"
+            alt="Campus Map"
             style={{ width: "100%", height: "auto", display: "block" }}
             draggable={false}
           />
 
-          {/* PIN'ler */}
+          {/* PINS */}
           {mappedEvents.map((e) => {
             const pos = locationMap[e.location!];
             return (
@@ -150,9 +161,10 @@ export default function CampusMap({ userId }: { userId: string }) {
         </div>
       )}
 
-      {/* Küçük bir açıklama */}
+      {/* Mini description */}
       <div style={{ marginTop: 8, fontSize: 12, color: "#666" }}>
-        Not: Haritada görünmesi için etkinliğin <b>location</b> alanının <i>locationMap</i>’te tanımlı olması gerekir.
+        Note: For an event to appear on the map, its <b>location</b> field must
+        be defined in <i>locationMap</i>.
       </div>
     </section>
   );

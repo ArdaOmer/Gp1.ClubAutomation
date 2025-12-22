@@ -2,27 +2,50 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTheme } from "../theme/ThemeContext";
-import { getClubs, getUpcomingEventsForUser, getAnnouncementsForClubs } from "../lib/api";
+import {
+  getClubs,
+  getUpcomingEventsForUser,
+  getAnnouncementsForClubs,
+} from "../lib/api";
 import type { Club, EventItem, Announcement } from "../types";
 import { Link } from "react-router-dom";
 
 type FeedItem =
-  | { type: "event"; id: string; clubId: string; title: string; dateISO: string; location?: string; data: EventItem }
-  | { type: "announcement"; id: string; clubId: string; title: string; dateISO: string; content?: string; pinned?: boolean; data: Announcement };
+  | {
+      type: "event";
+      id: number;
+      clubId: number;
+      title: string;
+      dateISO: string;
+      location?: string;
+      data: EventItem;
+    }
+  | {
+      type: "announcement";
+      id: number;
+      clubId: number;
+      title: string;
+      dateISO: string;
+      content?: string;
+      pinned?: boolean;
+      data: Announcement;
+    };
 
 // --- Like helpers (localStorage) ---
 function likeKey(itemKey: string) {
   return "feed_likes_" + itemKey; // itemKey: `${type}:${id}`
 }
-function readLikes(itemKey: string): string[] {
+function readLikes(itemKey: string): number[] {
   try {
     const raw = localStorage.getItem(likeKey(itemKey));
-    return raw ? (JSON.parse(raw) as string[]) : [];
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((x) => Number(x)).filter((x) => Number.isFinite(x));
   } catch {
     return [];
   }
 }
-function writeLikes(itemKey: string, userIds: string[]) {
+function writeLikes(itemKey: string, userIds: number[]) {
   localStorage.setItem(likeKey(itemKey), JSON.stringify(userIds));
 }
 
@@ -32,7 +55,7 @@ function LikeButton({
   theme,
 }: {
   itemKey: string;
-  userId: string;
+  userId: number;
   theme: "light" | "dark" | string;
 }) {
   const initial = readLikes(itemKey);
@@ -42,6 +65,7 @@ function LikeButton({
   function toggle() {
     const arr = readLikes(itemKey);
     const has = arr.includes(userId);
+
     if (has) {
       const next = arr.filter((x) => x !== userId);
       writeLikes(itemKey, next);
@@ -58,7 +82,7 @@ function LikeButton({
   return (
     <button
       onClick={toggle}
-      title={liked ? "Beğenmekten vazgeç" : "Beğen"}
+      title={liked ? "Unlike" : "Like"}
       style={{
         padding: "6px 10px",
         borderRadius: 8,
@@ -72,37 +96,49 @@ function LikeButton({
         minWidth: 96,
       }}
     >
-      <span aria-hidden="true" style={{ fontSize: 16 }}>{liked ? "❤️" : "🤍"}</span>
-      <span style={{ fontWeight: 600 }}>Beğen</span>
+      <span aria-hidden="true" style={{ fontSize: 16 }}>
+        {liked ? "❤️" : "🤍"}
+      </span>
+      <span style={{ fontWeight: 600 }}>Like</span>
       <span style={{ fontSize: 12, opacity: 0.8 }}>({count})</span>
     </button>
   );
 }
 
-export default function CampusFeed({ userId, myClubIds }: { userId: string; myClubIds: string[] }) {
+export default function CampusFeed({
+  userId,
+  myClubIds,
+}: {
+  userId: number;
+  myClubIds: number[];
+}) {
   const { theme } = useTheme();
   const [filter, setFilter] = useState<"all" | "event" | "announcement">("all");
 
-  // Kulüpler (isimler için)
+  // Clubs (for names)
   const clubsQ = useQuery({ queryKey: ["clubs"], queryFn: getClubs });
 
-  // Üyenin kulüplerinden DUYURULAR
+  // Announcements from member's clubs
   const annsQ = useQuery({
-    queryKey: ["feed_announcements", myClubIds.sort().join(",")],
+    queryKey: [
+      "feed_announcements",
+      [...myClubIds].sort((a, b) => a - b).join(","),
+    ],
     queryFn: () => getAnnouncementsForClubs(myClubIds),
     enabled: myClubIds.length > 0,
   });
 
-  // Üyenin kulüplerinden YAKLAŞAN ETKİNLİKLER (30 gün)
+  // Upcoming Events from member's clubs (30 days)
   const eventsQ = useQuery({
     queryKey: ["feed_upcoming", userId, 30],
     queryFn: () => getUpcomingEventsForUser(userId, 30),
-    enabled: !!userId,
+    enabled: Number.isFinite(userId),
   });
 
-  const clubName = (cid: string) => clubsQ.data?.find((c: Club) => c.id === cid)?.name || "Kulüp";
+  const clubName = (cid: number) =>
+    clubsQ.data?.find((c: Club) => c.id === cid)?.name || "Club";
 
-  // Birleştir + tarihe göre sırala
+  // merge + sort by date
   const feed: FeedItem[] = useMemo(() => {
     const a: FeedItem[] =
       (annsQ.data as Announcement[] | undefined)?.map((x) => ({
@@ -128,7 +164,9 @@ export default function CampusFeed({ userId, myClubIds }: { userId: string; myCl
       })) ?? [];
 
     const combined = [...a, ...e];
-    combined.sort((lhs, rhs) => new Date(rhs.dateISO).getTime() - new Date(lhs.dateISO).getTime());
+    combined.sort(
+      (lhs, rhs) => new Date(rhs.dateISO).getTime() - new Date(lhs.dateISO).getTime()
+    );
     return combined;
   }, [annsQ.data, eventsQ.data]);
 
@@ -138,15 +176,18 @@ export default function CampusFeed({ userId, myClubIds }: { userId: string; myCl
     background: theme === "dark" ? "#1f2937" : "#fff",
     border: theme === "dark" ? "1px solid #374151" : "1px solid #eee",
     borderRadius: 12,
-    boxShadow: theme === "dark" ? "0 2px 6px rgba(0,0,0,.3)" : "0 2px 8px rgba(0,0,0,.05)",
+    boxShadow:
+      theme === "dark"
+        ? "0 2px 6px rgba(0,0,0,.3)"
+        : "0 2px 8px rgba(0,0,0,.05)",
     padding: 12,
   };
 
   return (
     <section style={{ display: "grid", gap: 12 }}>
-      {/* Başlık ve filtre */}
+      {/* Title and filter */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <h3 style={{ margin: 0 }}>🎓 Kampüs Akışı</h3>
+        <h3 style={{ margin: 0 }}>🎓 Campus Feed</h3>
         <div style={{ flex: 1 }} />
         <select
           value={filter}
@@ -159,14 +200,16 @@ export default function CampusFeed({ userId, myClubIds }: { userId: string; myCl
             color: theme === "dark" ? "#e5e7eb" : "#111",
           }}
         >
-          <option value="all">Hepsi</option>
-          <option value="event">Yalnızca Etkinlik</option>
-          <option value="announcement">Yalnızca Duyuru</option>
+          <option value="all">All</option>
+          <option value="event">Events Only</option>
+          <option value="announcement">Announcements Only</option>
         </select>
       </div>
 
       {(annsQ.isLoading || eventsQ.isLoading || clubsQ.isLoading) && (
-        <div style={{ fontSize: 14, color: theme === "dark" ? "#9ca3af" : "#666" }}>Yükleniyor…</div>
+        <div style={{ fontSize: 14, color: theme === "dark" ? "#9ca3af" : "#666" }}>
+          Loading…
+        </div>
       )}
 
       {!annsQ.isLoading && !eventsQ.isLoading && filtered.length === 0 && (
@@ -179,7 +222,7 @@ export default function CampusFeed({ userId, myClubIds }: { userId: string; myCl
             fontSize: 14,
           }}
         >
-          Şu anda gösterilecek aktivite yok.
+          There is no activity to show right now.
         </div>
       )}
 
@@ -191,8 +234,15 @@ export default function CampusFeed({ userId, myClubIds }: { userId: string; myCl
 
           return (
             <li key={`${f.type}_${f.id}`} style={cardStyle}>
-              <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
-                {/* Sol ikon */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 10,
+                  alignItems: "flex-start",
+                  flexWrap: "wrap",
+                }}
+              >
+                {/* left icon */}
                 <div
                   style={{
                     width: 36,
@@ -205,12 +255,12 @@ export default function CampusFeed({ userId, myClubIds }: { userId: string; myCl
                     color: labelColor,
                     fontSize: 18,
                   }}
-                  title={f.type === "event" ? "Etkinlik" : "Duyuru"}
+                  title={f.type === "event" ? "Event" : "Announcement"}
                 >
                   {icon}
                 </div>
 
-                {/* İçerik */}
+                {/* content */}
                 <div style={{ flex: 1, minWidth: 240 }}>
                   <div style={{ fontWeight: 700 }}>
                     {f.title}{" "}
@@ -224,7 +274,8 @@ export default function CampusFeed({ userId, myClubIds }: { userId: string; myCl
                     >
                       • {clubName(f.clubId)}
                     </span>
-                    {f.type === "announcement" && (f as any).pinned && (
+
+                    {f.type === "announcement" && f.pinned && (
                       <span
                         style={{
                           marginLeft: 8,
@@ -235,26 +286,31 @@ export default function CampusFeed({ userId, myClubIds }: { userId: string; myCl
                           color: "#b91c1c",
                         }}
                       >
-                        Sabit
+                        Pinned
                       </span>
                     )}
                   </div>
 
-                  <div style={{ fontSize: 12, color: theme === "dark" ? "#9ca3af" : "#6b7280", marginTop: 2 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: theme === "dark" ? "#9ca3af" : "#6b7280",
+                      marginTop: 2,
+                    }}
+                  >
                     {new Date(f.dateISO).toLocaleString("tr-TR")}
                     {f.type === "event" && f.location ? ` | ${f.location}` : ""}
                   </div>
 
-                  {f.type === "announcement" && (f as any).content && (
-                    <div style={{ fontSize: 14, marginTop: 6 }}>{(f as any).content}</div>
+                  {f.type === "announcement" && f.content && (
+                    <div style={{ fontSize: 14, marginTop: 6 }}>{f.content}</div>
                   )}
                 </div>
 
-                {/* Sağ aksiyonlar */}
+                {/* right actions */}
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  {/* Beğen butonu (localStorage) */}
                   <LikeButton itemKey={itemKey} userId={userId} theme={theme} />
-                  {/* Link */}
+
                   <Link
                     to={`/clubs/${f.clubId}/events`}
                     style={{
@@ -268,7 +324,7 @@ export default function CampusFeed({ userId, myClubIds }: { userId: string; myCl
                       textAlign: "center",
                     }}
                   >
-                    {f.type === "event" ? "Detay" : "Kulüp"}
+                    {f.type === "event" ? "Details" : "Club"}
                   </Link>
                 </div>
               </div>
@@ -277,7 +333,7 @@ export default function CampusFeed({ userId, myClubIds }: { userId: string; myCl
         })}
       </ul>
 
-      {/* manuel yenileme */}
+      {/* manual refresh */}
       <div style={{ display: "flex", justifyContent: "center" }}>
         <button
           onClick={() => {
@@ -294,7 +350,7 @@ export default function CampusFeed({ userId, myClubIds }: { userId: string; myCl
             cursor: "pointer",
           }}
         >
-          🔄 Yeni aktiviteleri getir
+          🔄 Fetch new activities
         </button>
       </div>
     </section>

@@ -33,7 +33,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           zIndex: 10,
         }}
       >
-        {/* Sol logo / marka */}
+        {/* Left logo / brand */}
         <Link
           to="/"
           style={{
@@ -61,10 +61,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           >
             U
           </span>
-          <span>Kulüp Otomasyonu</span>
+          <span>Club Automation</span>
         </Link>
 
-        {/* Orta navigasyon */}
+        {/* Mid Navigation */}
         <nav style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <NavLink
             to="/"
@@ -93,7 +93,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               fontWeight: 500,
             }}
           >
-            Profilim
+            My Profile
           </NavLink>
 
           <NavLink
@@ -108,7 +108,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               fontWeight: 500,
             }}
           >
-            Kulüpler
+            Clubs
           </NavLink>
 
           <NavLink
@@ -123,10 +123,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               fontWeight: 500,
             }}
           >
-            Sertifikalar
+            Certificates
           </NavLink>
 
-          {/* Duyurular (çan + badge) */}
+          {/* Announcements (bell + badge) */}
           <NavLink
             to="/announcements"
             style={{
@@ -142,7 +142,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               alignItems: "center",
               gap: 6,
             }}
-            title="Duyurular"
+            title="Announcements"
           >
             <span style={{ position: "relative", display: "inline-block" }}>
               <span style={{ fontSize: 16 }}>🔔</span>
@@ -163,11 +163,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               )}
             </span>
 
-            <span>Duyurular</span>
+            <span>Announcements</span>
           </NavLink>
         </nav>
 
-        {/* Sağ taraf: tema tuşu + çıkış */}
+        {/* Right Side : theme button + leave button */}
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
           <button
             onClick={toggleTheme}
@@ -197,12 +197,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               fontWeight: 500,
             }}
           >
-            Çıkış
+            Logout
           </button>
         </div>
       </header>
 
-      {/* İçerik alanı */}
+      {/* Content Zone */}
       <main
         style={{
           maxWidth: 1100,

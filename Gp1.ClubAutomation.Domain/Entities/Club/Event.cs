@@ -1,17 +1,17 @@
 ﻿using Gp1.ClubAutomation.Domain.Common;
 
-namespace Gp1.ClubAutomation.Domain.Entities
+namespace Gp1.ClubAutomation.Domain.Entities.Club
 {
     public class Event : BaseEntity
     {
-        public string Title { get; set; } = null!;
-        public string Description { get; set; } = null!;
-        public string Location { get; set; } = null!;
-        public DateTime StartDate { get; set; }
-        public DateTime EndDate { get; set; }
-
-        // İlişki: Her etkinlik bir kulübe ait
         public int ClubId { get; set; }
-        public Club Club { get; set; } = null!;
+        public string Title { get; set; } = default!;
+        public string? Description { get; set; }
+        public string? Location { get; set; }
+        public DateTime StartAt { get; set; }
+        public DateTime EndAt { get; set; }
+        public bool IsPublished { get; set; } = true;
+
+        public Club Club { get; set; } = default!;
     }
 }

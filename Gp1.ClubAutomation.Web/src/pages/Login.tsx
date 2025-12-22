@@ -1,8 +1,8 @@
-import { FormEvent, useState } from "react";
+import { useState } from "react";
+import type { FormEvent } from "react";
 import { loginApi } from "../lib/api";
 import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "react-router-dom";
-
 
 export default function Login() {
   const nav = useNavigate();
@@ -14,13 +14,14 @@ export default function Login() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setErr(null); setLoading(true);
+    setErr(null);
+    setLoading(true);
     try {
       const res = await loginApi({ email, password });
       login(res.token, res.user);
       nav("/");
     } catch (e: any) {
-      setErr(e?.message ?? "Giriş başarısız.");
+      setErr(e?.message ?? "Login failed.");
     } finally {
       setLoading(false);
     }
@@ -38,10 +39,9 @@ export default function Login() {
         padding: 16,
       }}
     >
-      {/* Arka plan logo (su izi) */}
+      {/* Background logo (watermark) */}
       <img
-        
-        src="/university logo.png"
+        src="/university_logo.png"
         alt=""
         aria-hidden="true"
         style={{
@@ -51,7 +51,7 @@ export default function Login() {
           height: "auto",
           margin: "auto",
           objectFit: "contain",
-          opacity: 0.3,          // su izi etkisi
+          opacity: 0.3, // water mark effect
           filter: "grayscale(100%)",
           zIndex: 0,
           pointerEvents: "none",
@@ -59,7 +59,7 @@ export default function Login() {
         }}
       />
 
-      {/* Hafif bir üstten degrade, kontrastı artırır (isteğe bağlı) */}
+      {/* A slight gradient from above enhances contrast (optional) */}
       <div
         style={{
           position: "absolute",
@@ -71,7 +71,7 @@ export default function Login() {
         }}
       />
 
-      {/* Login kartı */}
+      {/* Login Card*/}
       <form
         onSubmit={onSubmit}
         style={{
@@ -84,8 +84,15 @@ export default function Login() {
           border: "1px solid #eef2f7",
         }}
       >
-        {/* Kart üst başlık */}
-        <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
+        {/* card header */}
+        <div
+          style={{
+            display: "flex",
+            gap: 12,
+            alignItems: "center",
+            marginBottom: 12,
+          }}
+        >
           <div
             style={{
               width: 36,
@@ -99,21 +106,21 @@ export default function Login() {
               fontSize: 16,
               color: "#3b82f6",
             }}
-            title="Üniversite"
+            title="University"
           >
             U
           </div>
           <div>
-            <h1 style={{ fontSize: 18, margin: 0 }}>Kaydol ya da Giriş Yap</h1>
+            <h1 style={{ fontSize: 18, margin: 0 }}>Sign Up or Log In</h1>
             <div style={{ fontSize: 12, color: "#64748b" }}>
-              Üniversite Kulüp Otomasyonu
+              University Club Automation
             </div>
           </div>
         </div>
 
         <div style={{ display: "grid", gap: 12, marginTop: 8 }}>
           <input
-            placeholder="E-posta"
+            placeholder="Email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -127,7 +134,7 @@ export default function Login() {
             autoComplete="email"
           />
           <input
-            placeholder="Şifre"
+            placeholder="Password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -156,7 +163,7 @@ export default function Login() {
             onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
             onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
           >
-            {loading ? "Giriş yapılıyor..." : "Giriş Yap"}
+            {loading ? "Logging in..." : "Log In"}
           </button>
 
           {import.meta.env.VITE_USE_MOCK === "1" && (

@@ -9,22 +9,19 @@ import React, {
 
 import { useAuth } from "../auth/AuthContext";
 import { getAnnouncementsForClubs, getMyMemberships } from "../lib/api";
+import type { Announcement } from "../types";
 
-type AnnLite = {
-  id: string;
-  clubId: string;
-  title: string;
-  createdAt: string;
-  pinned?: boolean;
-  content?: string;
-};
+type AnnLite = Pick<
+  Announcement,
+  "id" | "clubId" | "title" | "createdAt" | "pinned" | "content"
+>;
 
 type NotifCtx = {
   unread: boolean;
   markAllRead: () => void;
   announcements: AnnLite[];
   loading: boolean;
-  refresh: () => void; // YENİ: dışarıdan "duyuruları tekrar yükle" çağırmak için
+  refresh: () => void;
 };
 
 const Ctx = createContext<NotifCtx | null>(null);
@@ -34,31 +31,28 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const { user } = useAuth();
 
-  // Kullanıcının üye olduğu kulüpler
-  const [clubIds, setClubIds] = useState<string[]>([]);
+  // Clubs the user is a member of
+  const [clubIds, setClubIds] = useState<number[]>([]);
 
-  // Duyurular
+  // Announcements
   const [announcements, setAnnouncements] = useState<AnnLite[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // User'a bağlı localStorage anahtarı
+  // LocalStorage key associated with the user
   const LS_KEY = user ? `read_ann_${user.id}` : "";
 
-  // Okunmuş duyuru ID'lerini state olarak tutuyoruz
-  const [readIdsState, setReadIdsState] = useState<string[]>([]);
+  // Read announcement IDs
+  const [readIdsState, setReadIdsState] = useState<number[]>([]);
 
-  // Bu state'i sadece tetikleyici olarak kullanacağız
+  // refresh trigger
   const [reloadKey, setReloadKey] = useState(0);
 
-  // ============== YARDIMCI FONKSİYONLAR ==============
-
-  // refresh(): dışarıdan çağrıldığında reloadKey++ yapıyoruz
-  // bu da aşağıdaki useEffect'i tekrar çalıştırıyor (= duyuruları yeniden çekiyor)
+  // refresh(): Reload the announcements
   const refresh = useCallback(() => {
     setReloadKey((x) => x + 1);
   }, []);
 
-  // markAllRead(): tüm mevcut duyuruları okundu say
+  // markAllRead(): Mark all available announcements as read.
   const markAllRead = useCallback(() => {
     if (!user) return;
     const allIds = announcements.map((a) => a.id);
@@ -66,33 +60,55 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.setItem(LS_KEY, JSON.stringify(allIds));
   }, [user, announcements, LS_KEY]);
 
-  // ============== EFFECTLER ==============
-
-  // Kullanıcı değişince, o kullanıcının okunmuş listesine bak
+  // Read list when user changes
   useEffect(() => {
     if (!user) {
       setReadIdsState([]);
       return;
     }
     try {
-      const parsed = JSON.parse(localStorage.getItem(LS_KEY) || "") as string[];
-      setReadIdsState(Array.isArray(parsed) ? parsed : []);
+      const parsed = JSON.parse(localStorage.getItem(LS_KEY) || "");
+      const ids = Array.isArray(parsed)
+        ? parsed
+            .map((x) => Number(x))
+            .filter((n) => Number.isFinite(n))
+        : [];
+      setReadIdsState(ids);
     } catch {
       setReadIdsState([]);
     }
   }, [user, LS_KEY]);
 
-  // Kullanıcının kulüp üyeliklerini yükle
+  // ✅ Load user's club memberships (ASYNC + SAFE)
   useEffect(() => {
     if (!user) {
       setClubIds([]);
       return;
     }
-    const ms = getMyMemberships(user.id); // lokal memberships mock
-    setClubIds(ms.map((m) => m.clubId));
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const memberships = await getMyMemberships(user.id); // Promise<Membership[]>
+        const ids = (Array.isArray(memberships) ? memberships : [])
+          .map((m) => Number(m.clubId))
+          .filter((n) => Number.isFinite(n));
+
+        if (!cancelled) setClubIds(ids);
+      } catch (err) {
+        // Prevent the app from crashing if there is no endpoint or if there is an error.
+        console.warn("getMyMemberships failed, fallback to []", err);
+        if (!cancelled) setClubIds([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
-  // Duyuruları yükle (ilk açılışta + her refresh() çağrısında)
+  // ✅ Load announcements
   useEffect(() => {
     if (!user || clubIds.length === 0) {
       setAnnouncements([]);
@@ -100,17 +116,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     let cancelled = false;
+
     (async () => {
       setLoading(true);
       try {
-        // kulüplerimden gelen duyurular
         const anns = await getAnnouncementsForClubs(clubIds);
-
-        if (!cancelled) {
-          // buradaki sırayı burada çok önemsemiyoruz,
-          // sort işini gösterdiğimiz yerde de yapabiliyoruz (Home, AnnouncementsPage vs)
-          setAnnouncements(anns);
-        }
+        if (!cancelled) setAnnouncements(Array.isArray(anns) ? anns : []);
+      } catch (err) {
+        console.warn("getAnnouncementsForClubs failed, fallback to []", err);
+        if (!cancelled) setAnnouncements([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -119,16 +133,14 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => {
       cancelled = true;
     };
-  }, [user, clubIds, reloadKey]); // <-- reloadKey burada önemli!
+  }, [user, clubIds, reloadKey]);
 
-  // okunmamış var mı?
+  // Are there any unread ones?
   const unread = useMemo(() => {
     if (!announcements.length) return false;
-    // eğer announcement.id readIdsState içinde yoksa unread kabul ediyoruz
     return announcements.some((a) => !readIdsState.includes(a.id));
   }, [announcements, readIdsState]);
 
-  // Provider value
   return (
     <Ctx.Provider
       value={{
@@ -136,7 +148,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
         markAllRead,
         announcements,
         loading,
-        refresh, // dışarıya açtık
+        refresh,
       }}
     >
       {children}
@@ -146,10 +158,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
 
 export function useNotifications() {
   const v = useContext(Ctx);
-  if (!v) {
-    throw new Error(
-      "useNotifications NotificationProvider içinde kullanılmalı."
-    );
-  }
+  if (!v) throw new Error("useNotifications must be used within NotificationProvider.");
   return v;
 }

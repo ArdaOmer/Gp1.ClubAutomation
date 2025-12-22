@@ -13,6 +13,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\Gp1.ClubAutomation.Application\Gp1.ClubAutomation.Application.csproj" />
       <ProjectReference Include="..\Gp1.ClubAutomation.Domain\Gp1.ClubAutomation.Domain.csproj" />
     </ItemGroup>
 

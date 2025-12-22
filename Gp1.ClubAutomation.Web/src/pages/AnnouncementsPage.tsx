@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getClubs } from "../lib/api";
 import type { Club } from "../types";
 
-function clubNameById(clubs: Club[], id: string) {
+function clubNameById(clubs: Club[], id: number) {
   const c = clubs.find((x) => x.id === id);
   return c?.name || "Kulüp";
 }
@@ -18,28 +18,25 @@ export default function AnnouncementsPage() {
   const { announcements, loading, markAllRead } = useNotifications();
   const clubsQ = useQuery({ queryKey: ["clubs"], queryFn: getClubs });
 
-  // SAYFA AÇILDIĞINDA OKUNMUŞ SAY
+  // PAGE TURNS OFF AS READ WHEN OPENED
   useEffect(() => {
     markAllRead();
-  }, []);
+  }, [markAllRead]);
 
   const sorted = useMemo(() => {
     return [...announcements].sort((a, b) => {
-      // pinned olanlar önce gelsin
-      if (!!b.pinned - +!!a.pinned !== 0) {
-        return (!!b.pinned ? 1 : 0) - (!!a.pinned ? 1 : 0);
-      }
-      // sonra tarihe göre (yeni en üstte)
-      return (
-        new Date(b.createdAt).getTime() -
-        new Date(a.createdAt).getTime()
-      );
+      // Pinned items come first (true > false)
+      const pinDiff = Number(!!b.pinned) - Number(!!a.pinned);
+      if (pinDiff !== 0) return pinDiff;
+
+      // then according to date (new at the top)
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   }, [announcements]);
 
   return (
     <div style={{ padding: 8 }}>
-      <h2 style={{ marginTop: 0, marginBottom: 12 }}>Duyurular</h2>
+      <h2 style={{ marginTop: 0, marginBottom: 12 }}>Announcements</h2>
 
       {loading ? (
         <div>Yükleniyor…</div>
@@ -53,7 +50,7 @@ export default function AnnouncementsPage() {
             fontSize: 14,
           }}
         >
-          Kulüplerinden yeni duyuru yok.
+          No new announcements from clubs.
         </div>
       ) : (
         <ul
