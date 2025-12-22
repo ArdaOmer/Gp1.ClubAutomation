@@ -17,6 +17,21 @@ import Modal from "../components/Modal";
 import { QRCodeCanvas } from "qrcode.react";
 import type { Membership, EventItem } from "../types";
 
+// === Location map keys must match CampusMap.tsx keys exactly ===
+type Pos = { xPct: number; yPct: number; label?: string };
+
+const locationMap: Record<string, Pos> = {
+  "A Blok": { xPct: 10, yPct: 72, label: "A Block" },
+  "Gençlik Merkezi": { xPct: 64, yPct: 58, label: "Youth Center" },
+  "Kütüphane": { xPct: 53, yPct: 74, label: "Library" },
+  "Stadyum": { xPct: 97, yPct: 43, label: "Stadium" },
+  "Spor Salonu": { xPct: 78, yPct: 90, label: "Sports Hall" },
+  "Konferans Salonu": { xPct: 29, yPct: 36, label: "Conference Hall" },
+  "Cey Park": { xPct: 42, yPct: 68, label: "Cey Park" },
+};
+
+const locationKeys = Object.keys(locationMap);
+
 export default function ClubEvents() {
   const { id } = useParams(); // clubId (string)
   const clubId = Number(id); // ✅ convert number
@@ -61,7 +76,22 @@ export default function ClubEvents() {
 
   // events create form state
   const [title, setTitle] = useState("");
-  const [loc, setLoc] = useState("");
+
+  // ✅ Location: preset + custom
+  const [locMode, setLocMode] = useState<"preset" | "custom">("preset");
+  const [locPreset, setLocPreset] = useState<string>(locationKeys[0] ?? "");
+  const [locCustom, setLocCustom] = useState<string>("");
+
+  // actual location to save
+  const locationToSave = useMemo(() => {
+    const v =
+      locMode === "preset"
+        ? (locPreset || "")
+        : (locCustom || "");
+
+    return v.trim();
+  }, [locMode, locPreset, locCustom]);
+
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
 
@@ -69,16 +99,21 @@ export default function ClubEvents() {
     mutationFn: () =>
       createEvent(clubId, {
         title,
-        location: loc,
+        location: locationToSave, // ✅ IMPORTANT
         description: "",
         startAt: start,
         endAt: end,
       }),
     onSuccess: () => {
       setTitle("");
-      setLoc("");
       setStart("");
       setEnd("");
+
+      // reset location fields if you want
+      setLocMode("preset");
+      setLocPreset(locationKeys[0] ?? "");
+      setLocCustom("");
+
       qc.invalidateQueries({ queryKey: ["events", clubId] });
       push({ message: "Event created ✅" });
     },
@@ -215,12 +250,50 @@ export default function ClubEvents() {
             onChange={(e) => setTitle(e.target.value)}
             style={{ padding: 8, border: "1px solid #ddd", borderRadius: 8 }}
           />
-          <input
-            placeholder="Location"
-            value={loc}
-            onChange={(e) => setLoc(e.target.value)}
-            style={{ padding: 8, border: "1px solid #ddd", borderRadius: 8 }}
-          />
+
+          {/* ✅ Location selector with custom option */}
+          <div style={{ display: "grid", gap: 6 }}>
+            <select
+              value={locMode === "preset" ? locPreset : "__custom__"}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "__custom__") {
+                  setLocMode("custom");
+                } else {
+                  setLocMode("preset");
+                  setLocPreset(v);
+                }
+              }}
+              style={{
+                padding: 8,
+                border: "1px solid #ddd",
+                borderRadius: 8,
+                background: "#fff",
+              }}
+              title="Choose a location (must match CampusMap keys for pins)"
+            >
+              {locationKeys.map((k) => (
+                <option key={k} value={k}>
+                  {locationMap[k]?.label ? `${locationMap[k].label} (${k})` : k}
+                </option>
+              ))}
+              <option value="__custom__">Other / Custom…</option>
+            </select>
+
+            {locMode === "custom" && (
+              <input
+                placeholder='Type exact map key (e.g., "Kütüphane")'
+                value={locCustom}
+                onChange={(e) => setLocCustom(e.target.value)}
+                style={{ padding: 8, border: "1px solid #ddd", borderRadius: 8 }}
+              />
+            )}
+
+            <div style={{ fontSize: 12, color: "#666", lineHeight: 1.3 }}>
+              Map pins work only if location matches one of the predefined keys exactly.
+            </div>
+          </div>
+
           <input
             type="datetime-local"
             value={start}
@@ -237,7 +310,7 @@ export default function ClubEvents() {
           <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8 }}>
             <button
               onClick={() => createMut.mutate()}
-              disabled={!title || !start || !end || createMut.isPending}
+              disabled={!title || !start || !end || !locationToSave || createMut.isPending}
               style={{
                 padding: "8px 12px",
                 border: "none",
@@ -247,6 +320,7 @@ export default function ClubEvents() {
                 fontWeight: 500,
                 cursor: "pointer",
               }}
+              title={!locationToSave ? "Location is required" : ""}
             >
               {createMut.isPending ? "Adding..." : "Add Event"}
             </button>
