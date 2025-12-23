@@ -23,6 +23,28 @@ import CampusFeed from "../components/CampusFeed";
 import CampusMap from "../components/CampusMap";
 import { useNotifications } from "../notifications/NotificationContext";
 
+
+// UI-only (no endpoint call yet): high-level interest areas for the AI recommender modal.
+const AI_INTERESTS: string[] = [
+  "Sports",
+  "Arts",
+  "Music",
+  "Technology",
+  "Software & AI",
+  "Robotics",
+  "Entrepreneurship",
+  "Social Responsibility",
+  "Volunteerism",
+  "Culture",
+  "Photography",
+  "Gaming",
+  "Health & Wellness",
+  "Science",
+  "Language",
+];
+const AI_MAX_SELECTION = 4;
+
+
 export default function Home() {
   const { user } = useAuth();
   const { theme } = useTheme();
@@ -35,6 +57,17 @@ export default function Home() {
   const [filterClub, setFilterClub] = useState<number | "">("");
   const [days, setDays] = useState<number>(14);
   const [showAnnForm, setShowAnnForm] = useState(false);
+
+  // --- AI modal (UI only) ---
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiSelected, setAiSelected] = useState<string[]>([]);
+  const [aiSuggested, setAiSuggested] = useState(false);
+  const [aiFabHover, setAiFabHover] = useState(false);
+  const [aiPillHover, setAiPillHover] = useState<string | null>(null);
+  const [aiSuggestHover, setAiSuggestHover] = useState(false);
+
+
+
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -190,6 +223,39 @@ export default function Home() {
   };
 
   const isLoadingHeader = clubsQ.isLoading || membershipsQ.isLoading;
+
+
+  // --- AI UI helpers (UI only) ---
+  const aiCanSuggest = aiSelected.length > 0;
+  const aiAtLimit = aiSelected.length >= AI_MAX_SELECTION;
+
+
+  // UI-only placeholder: pick a few clubs to render as "suggested".
+  const aiRecommendedPreview: Club[] = useMemo(() => {
+    const all = clubsQ.data ?? [];
+    if (!all.length) return [];
+    return all.slice(0, 5);
+  }, [clubsQ.data]);
+
+  function toggleAiInterest(label: string) {
+  setAiSuggested(false);
+
+  setAiSelected((prev) => {
+    const already = prev.includes(label);
+
+    if (already) return prev.filter((x) => x !== label); // unselect always allowed
+    if (prev.length >= AI_MAX_SELECTION) return prev;    // block if limit reached
+
+    return [...prev, label]; // select
+  });
+}
+
+
+  function closeAi() {
+    setAiOpen(false);
+    setAiSuggested(false);
+    setAiSelected([]);
+  }
 
   return (
     <div style={{ padding: 16, display: "grid", gap: 16 }}>
@@ -724,7 +790,454 @@ export default function Home() {
           </ul>
         )}
       </section>
+    
+
+      {/* === AI: floating button + modal (UI only) === */}
+      <button
+  type="button"
+  onClick={() => setAiOpen(true)}
+  onMouseEnter={() => setAiFabHover(true)}
+  onMouseLeave={() => setAiFabHover(false)}
+  aria-label="Open AI club recommender"
+  title="AI Club Recommendation"
+  style={{
+    position: "fixed",
+    right: 18,
+    bottom: 18,
+    zIndex: 999,
+    border: "1px solid rgba(255,255,255,.18)",
+    cursor: "pointer",
+    borderRadius: 999,
+    padding: "12px 14px",
+    boxShadow:
+      theme === "dark"
+        ? "0 14px 34px rgba(0,0,0,.52)"
+        : "0 14px 34px rgba(0,0,0,.22)",
+    background: theme === "dark" ? "rgba(17,24,39,.92)" : "rgba(17,24,39,.92)",
+    color: "#fff",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 10,
+
+    // premium touches
+    backdropFilter: "blur(6px)",
+    WebkitBackdropFilter: "blur(6px)",
+    transition: "transform .15s ease, box-shadow .15s ease, opacity .15s ease",
+    transform: aiFabHover ? "translateY(-2px)" : "translateY(0)",
+    opacity: aiFabHover ? 1 : 0.96,
+  }}
+>
+  <span style={{ fontSize: 18, lineHeight: 1 }}>🤖</span>
+
+  {/*  */}
+  <span
+    style={{
+      fontWeight: 900,
+      fontSize: 12,
+      letterSpacing: 0.2,
+      maxWidth: aiFabHover ? 120 : 0,
+      overflow: "hidden",
+      whiteSpace: "nowrap",
+      transition: "max-width .18s ease",
+    }}
+  >
+    AI Club
+    </span>
+  </button>
+
+  {aiOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeAi();
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: theme === "dark" ? "rgba(0,0,0,.65)" : "rgba(0,0,0,.45)",
+            display: "grid",
+            placeItems: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              width: "min(920px, 100%)",
+              borderRadius: 16,
+              border: theme === "dark" ? "1px solid #374151" : "1px solid #eee",
+              background: theme === "dark" ? "#0b1220" : "#fff",
+              boxShadow:
+                theme === "dark"
+                  ? "0 24px 80px rgba(0,0,0,.55)"
+                  : "0 24px 80px rgba(0,0,0,.25)",
+              overflow: "hidden",
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: "14px 16px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                borderBottom:
+                  theme === "dark" ? "1px solid #1f2937" : "1px solid #f1f5f9",
+                background:
+                  theme === "dark"
+                    ? "linear-gradient(135deg, rgba(17,24,39,1) 0%, rgba(15,23,42,1) 100%)"
+                    : "linear-gradient(135deg, rgba(248,250,252,1) 0%, rgba(255,255,255,1) 100%)",
+              }}
+            >
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ fontWeight: 900, letterSpacing: 0.2 }}>
+                  
+                  AI CLUB RECOMMENDATION
+                  </div>
+
+                    {/* BETA chip */}
+                      <span
+                    style={{
+                    fontSize: 11,
+                    fontWeight: 900,
+                    letterSpacing: 0.6,
+                    padding: "4px 8px",
+                    borderRadius: 999,
+                    border: theme === "dark" ? "1px solid #374151" : "1px solid #e2e8f0",
+                    background: theme === "dark" ? "rgba(99,102,241,.16)" : "rgba(99,102,241,.10)",
+                    color: theme === "dark" ? "#c7d2fe" : "#3730a3",
+                  }}
+                >
+                  BETA
+                </span>
+
+                {/* Selected count */}
+                <span
+              style={{
+                marginLeft: 4,
+                fontSize: 12,
+                color: theme === "dark" ? "#9ca3af" : "#64748b",
+                fontWeight: 800,
+              }}
+  >
+        Selected: {aiSelected.length}
+          </span>
+          </div>
+
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: theme === "dark" ? "#9ca3af" : "#64748b",
+                    marginTop: 2,
+                  }}
+                >
+                  Select interest areas and generate a club suggestion list.
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeAi}
+                aria-label="Close"
+                style={{
+                  border:
+                    theme === "dark" ? "1px solid #374151" : "1px solid #e2e8f0",
+                  background: theme === "dark" ? "#111827" : "#fff",
+                  color: theme === "dark" ? "#e5e7eb" : "#111",
+                  borderRadius: 10,
+                  padding: "6px 10px",
+                  cursor: "pointer",
+                  fontWeight: 900,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: 16, display: "grid", gap: 14 }}>
+              <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 12,
+                    }}
+                  >
+                    <div>Interest Areas</div>
+
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: theme === "dark" ? "#9ca3af" : "#64748b",
+                        fontWeight: 800,
+                      }}
+                    >
+                      {aiSelected.length}/{AI_MAX_SELECTION} selected
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: theme === "dark" ? "#9ca3af" : "#64748b",
+                      marginTop: 4,
+                    }}
+                  >
+                    You can select up to {AI_MAX_SELECTION} interest areas.
+                  </div>
+
+
+              {/* Pills */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                {AI_INTERESTS.map((label) => {
+                  const active = aiSelected.includes(label);
+                  const disabled = !active && aiSelected.length >= AI_MAX_SELECTION;
+
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => toggleAiInterest(label)}
+                      onMouseEnter={() => setAiPillHover(label)}
+                      onMouseLeave={() => setAiPillHover(null)}
+                      disabled={disabled}
+                        style={{
+                        borderRadius: 999,
+                        padding: "10px 12px",
+                        border: "1px solid",
+                        borderColor: active
+                          ? theme === "dark"
+                            ? "#60a5fa"
+                            : "#3b82f6"
+                          : theme === "dark"
+                            ? "#374151"
+                            : "#e2e8f0",
+                        background: active
+                          ? theme === "dark"
+                            ? "rgba(59,130,246,.22)"
+                            : "rgba(59,130,246,.12)"
+                          : theme === "dark"
+                            ? "#111827"
+                            : "#fff",
+                        color: theme === "dark" ? "#e5e7eb" : "#111",
+                        cursor: disabled ? "not-allowed" : "pointer",
+                        opacity: disabled ? (theme === "dark" ? 0.55 : 0.6) : 1,
+                        fontWeight: 800,
+                        fontSize: 13,
+                        transition: "transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease",
+                        transform: !disabled && aiPillHover === label ? "translateY(-1px)" : "translateY(0)",
+                        boxShadow: active
+                          ? theme === "dark"
+                            ? "0 10px 26px rgba(59,130,246,.18)"
+                            : "0 10px 26px rgba(59,130,246,.14)"
+                          : "none",
+
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Results (UI placeholder) */}
+<div style={{ marginTop: 4 }}>
+  <div
+    style={{
+      fontSize: 13,
+      color: theme === "dark" ? "#9ca3af" : "#64748b",
+      fontWeight: 800,
+    }}
+  >
+    Suggested Clubs
+  </div>
+
+  {/* 1) No interests selected */}
+  {!aiSelected.length ? (
+    <div
+      style={{
+        marginTop: 10,
+        borderRadius: 12,
+        padding: 14,
+        border: theme === "dark" ? "1px dashed #374151" : "1px dashed #cbd5e1",
+        color: theme === "dark" ? "#9ca3af" : "#64748b",
+        fontSize: 13,
+      }}
+    >
+      Select at least one interest to enable <b>Suggest</b>.
     </div>
+  ) : /* 2) Interests selected but not suggested yet => skeleton */ !aiSuggested ? (
+    <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          style={{
+            border: theme === "dark" ? "1px solid #374151" : "1px solid #e2e8f0",
+            borderRadius: 12,
+            padding: 12,
+            background: theme === "dark" ? "#111827" : "#fff",
+          }}
+        >
+          <div
+            style={{
+              height: 12,
+              width: "45%",
+              borderRadius: 999,
+              background: theme === "dark" ? "#1f2937" : "#e2e8f0",
+              marginBottom: 10,
+            }}
+          />
+          <div
+            style={{
+              height: 10,
+              width: "70%",
+              borderRadius: 999,
+              background: theme === "dark" ? "#1f2937" : "#e2e8f0",
+            }}
+          />
+        </div>
+      ))}
+
+      <div
+        style={{
+          fontSize: 12,
+          color: theme === "dark" ? "#9ca3af" : "#64748b",
+        }}
+      >
+        Ready to generate recommendations based on your selection.
+      </div>
+    </div>
+  ) : (
+    /* 3) Suggested => existing cards */
+    <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+      {aiRecommendedPreview.map((c) => (
+        <div
+          key={c.id}
+          style={{
+            border: theme === "dark" ? "1px solid #374151" : "1px solid #e2e8f0",
+            borderRadius: 12,
+            padding: 12,
+            background: theme === "dark" ? "#111827" : "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                fontWeight: 900,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {c.name}
+            </div>
+
+            <div
+              style={{
+                fontSize: 12,
+                color: theme === "dark" ? "#9ca3af" : "#64748b",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                maxWidth: 560,
+              }}
+            >
+              {c.description || "—"}
+            </div>
+          </div>
+
+          <Link to={`/clubs/${c.id}/events`} style={btn(theme)}>
+            View
+          </Link>
+        </div>
+      ))}
+
+      {!aiRecommendedPreview.length && (
+        <div
+          style={{
+            borderRadius: 12,
+            padding: 14,
+            border: theme === "dark" ? "1px dashed #374151" : "1px dashed #cbd5e1",
+            color: theme === "dark" ? "#9ca3af" : "#64748b",
+            fontSize: 13,
+          }}
+        >
+          No clubs available for preview. (This will be replaced by AI results later.)
+        </div>
+      )}
+    </div>
+  )}
+</div>
+
+{/* Body bitişi (Footer bunun altına gelecek) */}
+</div>
+
+
+{/* Footer (Suggest right-bottom) */}
+
+            <div
+              style={{
+                padding: 16,
+                display: "flex",
+                justifyContent: "flex-end",
+                borderTop:
+                  theme === "dark" ? "1px solid #1f2937" : "1px solid #f1f5f9",
+                gap: 10,
+                background: theme === "dark" ? "#0b1220" : "#fff",
+              }}
+            >
+              <button
+                  type="button"
+                  onClick={() => setAiSuggested(true)}
+                  disabled={!aiCanSuggest}
+                  onMouseEnter={() => setAiSuggestHover(true)}
+                  onMouseLeave={() => setAiSuggestHover(false)}
+                  title={aiCanSuggest ? "Generate recommendations" : "Select at least 1 interest"}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 12,
+                    border: "none",
+                    cursor: aiCanSuggest ? "pointer" : "not-allowed",
+                    background: aiCanSuggest
+                      ? theme === "dark"
+                        ? "#2563eb"
+                        : "#3b82f6"
+                      : theme === "dark"
+                        ? "#1f2937"
+                        : "#e2e8f0",
+                    color: aiCanSuggest ? "#fff" : theme === "dark" ? "#9ca3af" : "#64748b",
+                    fontWeight: 900,
+                    letterSpacing: 0.2,
+
+                    // ✅ CTA polish
+                    transition: "transform .12s ease, box-shadow .12s ease, filter .12s ease",
+                    transform: aiCanSuggest && aiSuggestHover ? "translateY(-1px)" : "translateY(0)",
+                    boxShadow: aiCanSuggest
+                      ? theme === "dark"
+                        ? "0 14px 32px rgba(37,99,235,.28)"
+                        : "0 14px 32px rgba(37,99,235,.22)"
+                      : "none",
+                    filter: aiCanSuggest && aiSuggestHover ? "brightness(1.03)" : "none",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  Suggest <span style={{ fontWeight: 900 }}>→</span>
+                </button>
+
+            </div>
+          </div>
+        </div>
+      )}
+</div>
   );
 }
 
