@@ -364,8 +364,6 @@ Genel akış:
 
 Projede bazı endpoint'ler (ör. announcements/memberships) **clubId listesine bağlı** olduğu için query key'lerin **stabil** olması önemlidir.
 
--   `myClubIdsArr.join(",")` gibi sabit string key üretmek performans ve doğru cache için önemlidir.
-
 -   ClubId listesinin her render'da farklı referans üretmesi durumunda sürekli refetch olabilir.
 
 ### 🔹 Profile Sayfası (Me Hydration)
