@@ -16,6 +16,7 @@ import {
   attendEvent,
   unattendEvent,
   getAttendanceCount,
+  aiRecommendClubs
 } from "../lib/api";
 import { Link } from "react-router-dom";
 import type { Club, EventItem, Announcement, Membership } from "../types";
@@ -65,6 +66,9 @@ export default function Home() {
   const [aiFabHover, setAiFabHover] = useState(false);
   const [aiPillHover, setAiPillHover] = useState<string | null>(null);
   const [aiSuggestHover, setAiSuggestHover] = useState(false);
+  const [aiResults, setAiResults] = useState<
+    { id: number; name: string; description?: string; score: number }[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
 
 
 
@@ -233,28 +237,36 @@ export default function Home() {
   // UI-only placeholder: pick a few clubs to render as "suggested".
   const aiRecommendedPreview: Club[] = useMemo(() => {
     const all = clubsQ.data ?? [];
-    if (!all.length) return [];
-    return all.slice(0, 5);
-  }, [clubsQ.data]);
+    if (!aiResults.length) return [];
+    // AI sonuçlarındaki id’lere göre gerçek Club objelerini buluyoruz (Link/route için)
+    const byId = new Map(all.map((c) => [c.id, c]));
+    return aiResults
+      .map((r) => byId.get(r.id))
+      .filter(Boolean)
+      .slice(0, 5) as Club[];
+  }, [clubsQ.data, aiResults]);
+
 
   function toggleAiInterest(label: string) {
-  setAiSuggested(false);
+    setAiSuggested(false);
 
-  setAiSelected((prev) => {
-    const already = prev.includes(label);
+    setAiSelected((prev) => {
+      const already = prev.includes(label);
 
-    if (already) return prev.filter((x) => x !== label); // unselect always allowed
-    if (prev.length >= AI_MAX_SELECTION) return prev;    // block if limit reached
+      if (already) return prev.filter((x) => x !== label); // unselect always allowed
+      if (prev.length >= AI_MAX_SELECTION) return prev;    // block if limit reached
 
-    return [...prev, label]; // select
-  });
-}
+      return [...prev, label]; // select
+    });
+  }
 
 
   function closeAi() {
     setAiOpen(false);
     setAiSuggested(false);
     setAiSelected([]);
+    setAiResults([]);
+    setAiLoading(false);
   }
 
   return (
@@ -790,62 +802,62 @@ export default function Home() {
           </ul>
         )}
       </section>
-    
+
 
       {/* === AI: floating button + modal (UI only) === */}
       <button
-  type="button"
-  onClick={() => setAiOpen(true)}
-  onMouseEnter={() => setAiFabHover(true)}
-  onMouseLeave={() => setAiFabHover(false)}
-  aria-label="Open AI club recommender"
-  title="AI Club Recommendation"
-  style={{
-    position: "fixed",
-    right: 18,
-    bottom: 18,
-    zIndex: 999,
-    border: "1px solid rgba(255,255,255,.18)",
-    cursor: "pointer",
-    borderRadius: 999,
-    padding: "12px 14px",
-    boxShadow:
-      theme === "dark"
-        ? "0 14px 34px rgba(0,0,0,.52)"
-        : "0 14px 34px rgba(0,0,0,.22)",
-    background: theme === "dark" ? "rgba(17,24,39,.92)" : "rgba(17,24,39,.92)",
-    color: "#fff",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 10,
+        type="button"
+        onClick={() => setAiOpen(true)}
+        onMouseEnter={() => setAiFabHover(true)}
+        onMouseLeave={() => setAiFabHover(false)}
+        aria-label="Open AI club recommender"
+        title="AI Club Recommendation"
+        style={{
+          position: "fixed",
+          right: 18,
+          bottom: 18,
+          zIndex: 999,
+          border: "1px solid rgba(255,255,255,.18)",
+          cursor: "pointer",
+          borderRadius: 999,
+          padding: "12px 14px",
+          boxShadow:
+            theme === "dark"
+              ? "0 14px 34px rgba(0,0,0,.52)"
+              : "0 14px 34px rgba(0,0,0,.22)",
+          background: theme === "dark" ? "rgba(17,24,39,.92)" : "rgba(17,24,39,.92)",
+          color: "#fff",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 10,
 
-    // premium touches
-    backdropFilter: "blur(6px)",
-    WebkitBackdropFilter: "blur(6px)",
-    transition: "transform .15s ease, box-shadow .15s ease, opacity .15s ease",
-    transform: aiFabHover ? "translateY(-2px)" : "translateY(0)",
-    opacity: aiFabHover ? 1 : 0.96,
-  }}
->
-  <span style={{ fontSize: 18, lineHeight: 1 }}>🤖</span>
+          // premium touches
+          backdropFilter: "blur(6px)",
+          WebkitBackdropFilter: "blur(6px)",
+          transition: "transform .15s ease, box-shadow .15s ease, opacity .15s ease",
+          transform: aiFabHover ? "translateY(-2px)" : "translateY(0)",
+          opacity: aiFabHover ? 1 : 0.96,
+        }}
+      >
+        <span style={{ fontSize: 18, lineHeight: 1 }}>🤖</span>
 
-  {/*  */}
-  <span
-    style={{
-      fontWeight: 900,
-      fontSize: 12,
-      letterSpacing: 0.2,
-      maxWidth: aiFabHover ? 120 : 0,
-      overflow: "hidden",
-      whiteSpace: "nowrap",
-      transition: "max-width .18s ease",
-    }}
-  >
-    AI Club
-    </span>
-  </button>
+        {/*  */}
+        <span
+          style={{
+            fontWeight: 900,
+            fontSize: 12,
+            letterSpacing: 0.2,
+            maxWidth: aiFabHover ? 120 : 0,
+            overflow: "hidden",
+            whiteSpace: "nowrap",
+            transition: "max-width .18s ease",
+          }}
+        >
+          AI Club
+        </span>
+      </button>
 
-  {aiOpen && (
+      {aiOpen && (
         <div
           role="dialog"
           aria-modal="true"
@@ -892,39 +904,39 @@ export default function Home() {
             >
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ fontWeight: 900, letterSpacing: 0.2 }}>
-                  
-                  AI CLUB RECOMMENDATION
+                  <div style={{ fontWeight: 900, letterSpacing: 0.2 }}>
+
+                    AI CLUB RECOMMENDATION
                   </div>
 
-                    {/* BETA chip */}
-                      <span
+                  {/* BETA chip */}
+                  <span
                     style={{
-                    fontSize: 11,
-                    fontWeight: 900,
-                    letterSpacing: 0.6,
-                    padding: "4px 8px",
-                    borderRadius: 999,
-                    border: theme === "dark" ? "1px solid #374151" : "1px solid #e2e8f0",
-                    background: theme === "dark" ? "rgba(99,102,241,.16)" : "rgba(99,102,241,.10)",
-                    color: theme === "dark" ? "#c7d2fe" : "#3730a3",
-                  }}
-                >
-                  BETA
-                </span>
+                      fontSize: 11,
+                      fontWeight: 900,
+                      letterSpacing: 0.6,
+                      padding: "4px 8px",
+                      borderRadius: 999,
+                      border: theme === "dark" ? "1px solid #374151" : "1px solid #e2e8f0",
+                      background: theme === "dark" ? "rgba(99,102,241,.16)" : "rgba(99,102,241,.10)",
+                      color: theme === "dark" ? "#c7d2fe" : "#3730a3",
+                    }}
+                  >
+                    BETA
+                  </span>
 
-                {/* Selected count */}
-                <span
-              style={{
-                marginLeft: 4,
-                fontSize: 12,
-                color: theme === "dark" ? "#9ca3af" : "#64748b",
-                fontWeight: 800,
-              }}
-  >
-        Selected: {aiSelected.length}
-          </span>
-          </div>
+                  {/* Selected count */}
+                  <span
+                    style={{
+                      marginLeft: 4,
+                      fontSize: 12,
+                      color: theme === "dark" ? "#9ca3af" : "#64748b",
+                      fontWeight: 800,
+                    }}
+                  >
+                    Selected: {aiSelected.length}
+                  </span>
+                </div>
 
                 <div
                   style={{
@@ -959,35 +971,35 @@ export default function Home() {
             {/* Body */}
             <div style={{ padding: 16, display: "grid", gap: 14 }}>
               <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: 12,
-                    }}
-                  >
-                    <div>Interest Areas</div>
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <div>Interest Areas</div>
 
-                    <div
-                      style={{
-                        fontSize: 12,
-                        color: theme === "dark" ? "#9ca3af" : "#64748b",
-                        fontWeight: 800,
-                      }}
-                    >
-                      {aiSelected.length}/{AI_MAX_SELECTION} selected
-                    </div>
-                  </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: theme === "dark" ? "#9ca3af" : "#64748b",
+                    fontWeight: 800,
+                  }}
+                >
+                  {aiSelected.length}/{AI_MAX_SELECTION} selected
+                </div>
+              </div>
 
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: theme === "dark" ? "#9ca3af" : "#64748b",
-                      marginTop: 4,
-                    }}
-                  >
-                    You can select up to {AI_MAX_SELECTION} interest areas.
-                  </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: theme === "dark" ? "#9ca3af" : "#64748b",
+                  marginTop: 4,
+                }}
+              >
+                You can select up to {AI_MAX_SELECTION} interest areas.
+              </div>
 
 
               {/* Pills */}
@@ -1004,7 +1016,7 @@ export default function Home() {
                       onMouseEnter={() => setAiPillHover(label)}
                       onMouseLeave={() => setAiPillHover(null)}
                       disabled={disabled}
-                        style={{
+                      style={{
                         borderRadius: 999,
                         padding: "10px 12px",
                         border: "1px solid",
@@ -1044,143 +1056,143 @@ export default function Home() {
               </div>
 
               {/* Results (UI placeholder) */}
-<div style={{ marginTop: 4 }}>
-  <div
-    style={{
-      fontSize: 13,
-      color: theme === "dark" ? "#9ca3af" : "#64748b",
-      fontWeight: 800,
-    }}
-  >
-    Suggested Clubs
-  </div>
+              <div style={{ marginTop: 4 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: theme === "dark" ? "#9ca3af" : "#64748b",
+                    fontWeight: 800,
+                  }}
+                >
+                  Suggested Clubs
+                </div>
 
-  {/* 1) No interests selected */}
-  {!aiSelected.length ? (
-    <div
-      style={{
-        marginTop: 10,
-        borderRadius: 12,
-        padding: 14,
-        border: theme === "dark" ? "1px dashed #374151" : "1px dashed #cbd5e1",
-        color: theme === "dark" ? "#9ca3af" : "#64748b",
-        fontSize: 13,
-      }}
-    >
-      Select at least one interest to enable <b>Suggest</b>.
-    </div>
-  ) : /* 2) Interests selected but not suggested yet => skeleton */ !aiSuggested ? (
-    <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
-      {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          style={{
-            border: theme === "dark" ? "1px solid #374151" : "1px solid #e2e8f0",
-            borderRadius: 12,
-            padding: 12,
-            background: theme === "dark" ? "#111827" : "#fff",
-          }}
-        >
-          <div
-            style={{
-              height: 12,
-              width: "45%",
-              borderRadius: 999,
-              background: theme === "dark" ? "#1f2937" : "#e2e8f0",
-              marginBottom: 10,
-            }}
-          />
-          <div
-            style={{
-              height: 10,
-              width: "70%",
-              borderRadius: 999,
-              background: theme === "dark" ? "#1f2937" : "#e2e8f0",
-            }}
-          />
-        </div>
-      ))}
+                {/* 1) No interests selected */}
+                {!aiSelected.length ? (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      borderRadius: 12,
+                      padding: 14,
+                      border: theme === "dark" ? "1px dashed #374151" : "1px dashed #cbd5e1",
+                      color: theme === "dark" ? "#9ca3af" : "#64748b",
+                      fontSize: 13,
+                    }}
+                  >
+                    Select at least one interest to enable <b>Suggest</b>.
+                  </div>
+                ) : /* 2) Interests selected but not suggested yet => skeleton */ !aiSuggested ? (
+                  <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+                    {[0, 1, 2].map((i) => (
+                      <div
+                        key={i}
+                        style={{
+                          border: theme === "dark" ? "1px solid #374151" : "1px solid #e2e8f0",
+                          borderRadius: 12,
+                          padding: 12,
+                          background: theme === "dark" ? "#111827" : "#fff",
+                        }}
+                      >
+                        <div
+                          style={{
+                            height: 12,
+                            width: "45%",
+                            borderRadius: 999,
+                            background: theme === "dark" ? "#1f2937" : "#e2e8f0",
+                            marginBottom: 10,
+                          }}
+                        />
+                        <div
+                          style={{
+                            height: 10,
+                            width: "70%",
+                            borderRadius: 999,
+                            background: theme === "dark" ? "#1f2937" : "#e2e8f0",
+                          }}
+                        />
+                      </div>
+                    ))}
 
-      <div
-        style={{
-          fontSize: 12,
-          color: theme === "dark" ? "#9ca3af" : "#64748b",
-        }}
-      >
-        Ready to generate recommendations based on your selection.
-      </div>
-    </div>
-  ) : (
-    /* 3) Suggested => existing cards */
-    <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
-      {aiRecommendedPreview.map((c) => (
-        <div
-          key={c.id}
-          style={{
-            border: theme === "dark" ? "1px solid #374151" : "1px solid #e2e8f0",
-            borderRadius: 12,
-            padding: 12,
-            background: theme === "dark" ? "#111827" : "#fff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                fontWeight: 900,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {c.name}
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: theme === "dark" ? "#9ca3af" : "#64748b",
+                      }}
+                    >
+                      Ready to generate recommendations based on your selection.
+                    </div>
+                  </div>
+                ) : (
+                  /* 3) Suggested => existing cards */
+                  <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+                    {aiRecommendedPreview.map((c) => (
+                      <div
+                        key={c.id}
+                        style={{
+                          border: theme === "dark" ? "1px solid #374151" : "1px solid #e2e8f0",
+                          borderRadius: 12,
+                          padding: 12,
+                          background: theme === "dark" ? "#111827" : "#fff",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontWeight: 900,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {c.name}
+                          </div>
+
+                          <div
+                            style={{
+                              fontSize: 12,
+                              color: theme === "dark" ? "#9ca3af" : "#64748b",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              maxWidth: 560,
+                            }}
+                          >
+                            {c.description || "—"}
+                          </div>
+                        </div>
+
+                        <Link to={`/clubs/${c.id}/events`} style={btn(theme)}>
+                          View
+                        </Link>
+                      </div>
+                    ))}
+
+                    {!aiRecommendedPreview.length && (
+                      <div
+                        style={{
+                          borderRadius: 12,
+                          padding: 14,
+                          border: theme === "dark" ? "1px dashed #374151" : "1px dashed #cbd5e1",
+                          color: theme === "dark" ? "#9ca3af" : "#64748b",
+                          fontSize: 13,
+                        }}
+                      >
+                        No clubs available for preview. (This will be replaced by AI results later.)
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Body bitişi (Footer bunun altına gelecek) */}
             </div>
 
-            <div
-              style={{
-                fontSize: 12,
-                color: theme === "dark" ? "#9ca3af" : "#64748b",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                maxWidth: 560,
-              }}
-            >
-              {c.description || "—"}
-            </div>
-          </div>
 
-          <Link to={`/clubs/${c.id}/events`} style={btn(theme)}>
-            View
-          </Link>
-        </div>
-      ))}
-
-      {!aiRecommendedPreview.length && (
-        <div
-          style={{
-            borderRadius: 12,
-            padding: 14,
-            border: theme === "dark" ? "1px dashed #374151" : "1px dashed #cbd5e1",
-            color: theme === "dark" ? "#9ca3af" : "#64748b",
-            fontSize: 13,
-          }}
-        >
-          No clubs available for preview. (This will be replaced by AI results later.)
-        </div>
-      )}
-    </div>
-  )}
-</div>
-
-{/* Body bitişi (Footer bunun altına gelecek) */}
-</div>
-
-
-{/* Footer (Suggest right-bottom) */}
+            {/* Footer (Suggest right-bottom) */}
 
             <div
               style={{
@@ -1194,50 +1206,67 @@ export default function Home() {
               }}
             >
               <button
-                  type="button"
-                  onClick={() => setAiSuggested(true)}
-                  disabled={!aiCanSuggest}
-                  onMouseEnter={() => setAiSuggestHover(true)}
-                  onMouseLeave={() => setAiSuggestHover(false)}
-                  title={aiCanSuggest ? "Generate recommendations" : "Select at least 1 interest"}
-                  style={{
-                    padding: "10px 14px",
-                    borderRadius: 12,
-                    border: "none",
-                    cursor: aiCanSuggest ? "pointer" : "not-allowed",
-                    background: aiCanSuggest
-                      ? theme === "dark"
-                        ? "#2563eb"
-                        : "#3b82f6"
-                      : theme === "dark"
-                        ? "#1f2937"
-                        : "#e2e8f0",
-                    color: aiCanSuggest ? "#fff" : theme === "dark" ? "#9ca3af" : "#64748b",
-                    fontWeight: 900,
-                    letterSpacing: 0.2,
+                type="button"
+                onClick={async () => {
+                  if (!aiCanSuggest || aiLoading) return;
 
-                    // ✅ CTA polish
-                    transition: "transform .12s ease, box-shadow .12s ease, filter .12s ease",
-                    transform: aiCanSuggest && aiSuggestHover ? "translateY(-1px)" : "translateY(0)",
-                    boxShadow: aiCanSuggest
-                      ? theme === "dark"
-                        ? "0 14px 32px rgba(37,99,235,.28)"
-                        : "0 14px 32px rgba(37,99,235,.22)"
-                      : "none",
-                    filter: aiCanSuggest && aiSuggestHover ? "brightness(1.03)" : "none",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  Suggest <span style={{ fontWeight: 900 }}>→</span>
-                </button>
+                  try {
+                    setAiLoading(true);
+                    setAiSuggested(true);
+
+                    const res = await aiRecommendClubs({ interests: aiSelected });
+
+                    setAiResults(Array.isArray(res?.recommendedClubs) ? res.recommendedClubs : []);
+                    push({ message: "AI recommendations generated ✅" });
+                  } catch (e: any) {
+                    setAiResults([]);
+                    push({ message: "AI recommendation failed", type: "error" });
+                  } finally {
+                    setAiLoading(false);
+                  }
+                }}
+                disabled={!aiCanSuggest}
+                onMouseEnter={() => setAiSuggestHover(true)}
+                onMouseLeave={() => setAiSuggestHover(false)}
+                title={aiCanSuggest ? "Generate recommendations" : "Select at least 1 interest"}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  border: "none",
+                  cursor: aiCanSuggest ? "pointer" : "not-allowed",
+                  background: aiCanSuggest
+                    ? theme === "dark"
+                      ? "#2563eb"
+                      : "#3b82f6"
+                    : theme === "dark"
+                      ? "#1f2937"
+                      : "#e2e8f0",
+                  color: aiCanSuggest ? "#fff" : theme === "dark" ? "#9ca3af" : "#64748b",
+                  fontWeight: 900,
+                  letterSpacing: 0.2,
+
+                  // ✅ CTA polish
+                  transition: "transform .12s ease, box-shadow .12s ease, filter .12s ease",
+                  transform: aiCanSuggest && aiSuggestHover ? "translateY(-1px)" : "translateY(0)",
+                  boxShadow: aiCanSuggest
+                    ? theme === "dark"
+                      ? "0 14px 32px rgba(37,99,235,.28)"
+                      : "0 14px 32px rgba(37,99,235,.22)"
+                    : "none",
+                  filter: aiCanSuggest && aiSuggestHover ? "brightness(1.03)" : "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                Suggest <span style={{ fontWeight: 900 }}>→</span>
+              </button>
 
             </div>
           </div>
         </div>
       )}
-</div>
+    </div>
   );
 }
 

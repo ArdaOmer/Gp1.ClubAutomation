@@ -1,5 +1,7 @@
-using Gp1.ClubAutomation.Api.Models;
+using Gp1.ClubAutomation.Api.Contracts.Ai;
+using Gp1.ClubAutomation.Infrastructure.Context;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Gp1.ClubAutomation.Api.Controllers;
 
@@ -7,32 +9,54 @@ namespace Gp1.ClubAutomation.Api.Controllers;
 [Route("api/[controller]")]
 public class AiController : ControllerBase
 {
-    private readonly HttpClient _aiClient;
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly AppDbContext _db;
 
-    public AiController(IHttpClientFactory httpClientFactory)
+    public AiController(IHttpClientFactory httpClientFactory, AppDbContext db)
     {
-        // We are using the HttpClient named "AiService" that we defined in Program.cs
-        _aiClient = httpClientFactory.CreateClient("AiService");
+        _httpClientFactory = httpClientFactory;
+        _db = db;
     }
 
-    [HttpPost("recommend-clubs")]
-    public async Task<IActionResult> RecommendClubs([FromBody] SurveyAnswersRequest request)
+    [HttpPost("recommend")]
+    public async Task<IActionResult> Recommend([FromBody] AiRecommendRequest req)
     {
-        // .NET → POST request to Python AI service
-        var response = await _aiClient.PostAsJsonAsync("/recommend-clubs", request);
+        // 1) AI Service
+        var client = _httpClientFactory.CreateClient("AiService");
 
-        if (!response.IsSuccessStatusCode)
-        {
-            var errorText = await response.Content.ReadAsStringAsync();
-            return StatusCode((int)response.StatusCode, new
+        var aiPayload = new { interests = req.Interests };
+        var resp = await client.PostAsJsonAsync("/recommend-clubs", aiPayload);
+
+        if (!resp.IsSuccessStatusCode)
+            return StatusCode((int)resp.StatusCode, "AI service error");
+
+        var ai = await resp.Content.ReadFromJsonAsync<AiRecommendResponse>();
+        if (ai == null) return StatusCode(500, "AI response parse error");
+        
+        var clubs = await _db.Clubs
+            .AsNoTracking()
+            .Select(c => new { c.Id, c.Name, c.Description })
+            .ToListAsync();
+
+        // 3) AI scores match (clubId -> score)
+        var scoreMap = ai.Scores.ToDictionary(x => x.ClubId, x => x.Score);
+
+        // 4) Only AI's clubs pull, order by score.
+        var recommended = clubs
+            .Where(c => scoreMap.ContainsKey(c.Id))
+            .Select(c => new AiRecommendedClubDto
             {
-                message = "The AI service returned an error.",
-                details = errorText
-            });
-        }
+                Id = c.Id,
+                Name = c.Name,
+                Description = c.Description,
+                Score = scoreMap[c.Id]
+            })
+            .OrderByDescending(x => x.Score)
+            .ToList();
 
-        // We receive the returned JSON as a string and forward it to FE as is.
-        var json = await response.Content.ReadAsStringAsync();
-        return Content(json, "application/json");
+        return Ok(new AiRecommendedClubsResponse
+        {
+            RecommendedClubs = recommended
+        });
     }
 }

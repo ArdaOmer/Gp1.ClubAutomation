@@ -285,3 +285,29 @@ export async function getEventsIAttend(userId: number) {
   const { data } = await api.get(`/users/${userId}/attendances`);
   return data as EventItem[];
 }
+
+/* =========================================================
+   AI
+   ========================================================= */
+
+export type AiRecommendReq = {
+  interests: string[]; // FE'deki pill stringleri (Sports, Software & AI, ...)
+};
+
+export type AiRecommendedClub = {
+  id: number;
+  name: string;
+  description?: string;
+  score: number;
+};
+
+export type AiRecommendRes = {
+  recommendedClubs: AiRecommendedClub[];
+};
+
+export async function aiRecommendClubs(
+  body: AiRecommendReq
+): Promise<AiRecommendRes> {
+  const { data } = await api.post<AiRecommendRes>("/ai/recommend", body);
+  return data;
+}

@@ -84,13 +84,11 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // AI Service for HttpClient
-builder.Services.AddHttpClient("AiService", client =>
+builder.Services.AddHttpClient("AiService", (sp, client) =>
 {
-    var baseUrl = builder.Configuration["AiService:BaseUrl"];
-    if (string.IsNullOrWhiteSpace(baseUrl))
-        throw new InvalidOperationException("AiService:BaseUrl is not configured.");
-
-    client.BaseAddress = new Uri(baseUrl);
+    var cfg = sp.GetRequiredService<IConfiguration>();
+    var baseUrl = cfg["AiService:BaseUrl"];
+    client.BaseAddress = new Uri(baseUrl!);
 });
 
 // =============================
