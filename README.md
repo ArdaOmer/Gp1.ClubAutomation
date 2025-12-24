@@ -419,9 +419,9 @@ Ek not:
 
 -   Değişiklik yaptın ama pull alman gerekiyorsa ve rollback istemiyorsan:
 
-    `git stash push
-    git pull
-    git stash pop`
+    - `git stash push`
+    - `git pull`
+    - `git stash pop`
 
 * * * * *
 
