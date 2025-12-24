@@ -187,13 +187,13 @@ python -m uvicorn app:app --host 127.0.0.1 --port 9000 --reload`
 
 Bu yöntem herkes için birebir aynı çalışır (Python yolu kişiden kişiye değişse bile).
 
-`cd .\Gp1.ClubAutomation.AI
-Remove-Item -Recurse -Force .venv
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install --upgrade pip
-pip install -r requirements_to_ai.txt
-python -m uvicorn app:app --host 127.0.0.1 --port 9000 --reload`
+- `cd .\Gp1.ClubAutomation.AI`
+- `Remove-Item -Recurse -Force .venv`
+- `python -m venv .venv`
+- `.\.venv\Scripts\Activate.ps1`
+- `pip install --upgrade pip`
+- `pip install -r requirements_to_ai.txt`
+- `python -m uvicorn app:app --host 127.0.0.1 --port 9000 --reload`
 
 **Neden bu yöntem?**
 
