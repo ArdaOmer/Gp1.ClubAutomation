@@ -1188,7 +1188,7 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Body bitişi (Footer bunun altına gelecek) */}
+              {/* Body finished (Footer under this) */}
             </div>
 
 

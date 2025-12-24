@@ -21,35 +21,60 @@ public class AiController : ControllerBase
     [HttpPost("recommend")]
     public async Task<IActionResult> Recommend([FromBody] AiRecommendRequest req)
     {
-        // 1) AI Service
+        // 1) Clubs from DB (so AI can learn newly added clubs immediately)
+        var clubs = await _db.Clubs
+            .AsNoTracking()
+            .Select(c => new
+            {
+                clubId = c.Id,
+                name = c.Name,
+                description = c.Description
+            })
+            .ToListAsync();
+
+        // Optional: if there is no club in DB, return empty
+        if (clubs.Count == 0)
+        {
+            return Ok(new AiRecommendedClubsResponse
+            {
+                RecommendedClubs = new List<AiRecommendedClubDto>()
+            });
+        }
+
+        // 2) AI Service
         var client = _httpClientFactory.CreateClient("AiService");
 
-        var aiPayload = new { interests = req.Interests };
+        // ✅ IMPORTANT: send clubs too
+        var aiPayload = new
+        {
+            interests = req.Interests,
+            clubs = clubs
+        };
+
         var resp = await client.PostAsJsonAsync("/recommend-clubs", aiPayload);
 
         if (!resp.IsSuccessStatusCode)
-            return StatusCode((int)resp.StatusCode, "AI service error");
+        {
+            var err = await resp.Content.ReadAsStringAsync();
+            return StatusCode((int)resp.StatusCode, $"AI service error: {err}");
+        }
 
         var ai = await resp.Content.ReadFromJsonAsync<AiRecommendResponse>();
-        if (ai == null) return StatusCode(500, "AI response parse error");
-        
-        var clubs = await _db.Clubs
-            .AsNoTracking()
-            .Select(c => new { c.Id, c.Name, c.Description })
-            .ToListAsync();
+        if (ai == null || ai.Scores == null)
+            return StatusCode(500, "AI response parse error");
 
         // 3) AI scores match (clubId -> score)
         var scoreMap = ai.Scores.ToDictionary(x => x.ClubId, x => x.Score);
 
-        // 4) Only AI's clubs pull, order by score.
+        // 4) Order by score, include all clubs that AI scored
         var recommended = clubs
-            .Where(c => scoreMap.ContainsKey(c.Id))
+            .Where(c => scoreMap.ContainsKey(c.clubId))
             .Select(c => new AiRecommendedClubDto
             {
-                Id = c.Id,
-                Name = c.Name,
-                Description = c.Description,
-                Score = scoreMap[c.Id]
+                Id = c.clubId,
+                Name = c.name,
+                Description = c.description,
+                Score = scoreMap[c.clubId]
             })
             .OrderByDescending(x => x.Score)
             .ToList();
