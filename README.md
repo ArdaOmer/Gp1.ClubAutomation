@@ -1,182 +1,432 @@
-# 🧩 GP1 Club Automation
+🧩 GP1 Club Automation
+======================
 
-## 📘 Proje Tanımı
-**GP1 Club Automation**, üniversite öğrenci kulüplerinin etkinliklerini, üyelik süreçlerini ve yoklama işlemlerini merkezi bir sistem üzerinden yönetmelerini sağlayan bir **web tabanlı otomasyon sistemidir**.
+📘 Proje Tanımı
+---------------
 
-Proje, hem öğrenci kullanıcılarının hem de kulüp yöneticilerinin etkinlik planlama, üyelik başvurusu, duyuru paylaşımı gibi işlemleri kolayca gerçekleştirebilmeleri için tasarlanmıştır.  
-Ayrıca Python tabanlı bir **yapay zekâ modülü**, öğrencilerin doldurdukları anketlere göre onlara uygun kulüpleri önerecektir.
+**GP1 Club Automation**, üniversite öğrenci kulüplerinin **üyelik yönetimi**, **etkinlik planlama**, **duyuru paylaşımı** ve **yoklama/katılım takibi** süreçlerini tek bir web platformu üzerinden yönetmesini sağlayan **web tabanlı otomasyon sistemidir**.
 
----
+Sistem iki ana kullanıcı profili etrafında şekillenir:
 
-## ⚙️ Teknoloji Yığını
+-   **Öğrenci (User)**
+
+    -   Kulüpleri görüntüleyebilir
+
+    -   Üyelik durumunu görebilir
+
+    -   Kendi kulüplerinin duyurularını takip edebilir
+
+    -   Yaklaşan etkinlikleri görebilir, takvime ekleyebilir
+
+    -   Etkinliklere "Attend/Cancel" ile katılım durumunu yönetebilir
+
+    -   Profil bilgilerini güncelleyebilir (avatar dahil)
+
+-   **Kulüp Yöneticisi / Başkan (President)**
+
+    -   Yukarıdaki tüm yetkilere ek olarak:
+
+    -   Kendi kulübü adına **duyuru yayınlayabilir**
+
+    -   Duyuruları **edit/delete** edebilir
+
+    -   Etkinlik oluşturma ekranına hızlı aksiyonla erişebilir
+
+Ayrıca projede yer alan **Python tabanlı AI (Yapay Zekâ) modülü**, öğrencinin seçtiği ilgi alanlarına göre kulüpleri skorlayıp **öneri listesi** üretir.\
+Bu modül; kulüp **isim + açıklama** metinlerini normalize eder, **ağırlıklı anahtar kelime eşleşmesi** ile skor üretir ve backend üzerinden FE'ye öneri listesi olarak döner.
+
+* * * * *
+
+⚙️ Teknoloji Yığını
+-------------------
+
 | Katman | Teknoloji |
-|--------|------------|
+| --- | --- |
 | **Frontend** | React (Vite + TypeScript) |
 | **Backend** | ASP.NET Core (.NET 8) |
 | **Veritabanı** | PostgreSQL (Docker Compose üzerinden) |
-| **AI Modülü** | Python (öneri sistemi) |
+| **ORM** | Entity Framework Core |
+| **AI Modülü** | Python (FastAPI + Uvicorn) |
+| **HTTP Client** | IHttpClientFactory (AI servis çağrıları için) |
+| **State & Data Fetching** | @tanstack/react-query |
+| **Auth / State** | Custom AuthContext + LocalStorage sync |
 | **Containerization** | Docker Desktop + WSL 2 |
 | **Versiyon Kontrolü** | Git + GitHub |
+| **Geliştirme Araçları** | JetBrains Rider, VS Code, DataGrip/pgAdmin |
 
----
+* * * * *
 
-## 🚀 Proje Kurulumu
+🚀 Proje Kurulumu
+-----------------
 
-### 🔹 1. GitHub’dan Kodları Çekme
-```bash
-git clone https://github.com/ArdaOmer/Gp1.ClubAutomation.git
-cd Gp1.ClubAutomation
-```
-> 💡 `main` branch’e bu proje de doğrudan push yapılmalı.
----
+### 🔹 1. GitHub'dan Kodları Çekme
+
+`git clone https://github.com/ArdaOmer/Gp1.ClubAutomation.git
+cd Gp1.ClubAutomation`
+
+> 💡 Proje doğrudan `main` branch üzerinden yönetilmektedir.\
+> Takım içinde ayrı branch stratejisi uygulanmadıysa doğrudan `main` üzerine push akışı kullanılabilir.
+
+* * * * *
 
 ### 🐳 2. Docker Desktop Kurulumu
-1. [Docker Desktop](https://www.docker.com/products/docker-desktop/) kurun.
-2. WSL 2 yüklü olmalı. Kontrol için:
-   ```bash
-   wsl --version
-   ```
-   Eğer eskiyse:
-   ```bash
-   wsl --update
-   ```
-3. Docker‑ı başlatın ve çalıştığından emin olun.
 
----
+1.  [Docker Desktop](https://www.docker.com/products/docker-desktop/) kurun.
+
+2.  WSL 2 yüklü olmalı. Kontrol:
+
+    `wsl --version`
+
+    Eğer eskiyse:
+
+    `wsl --update`
+
+3.  Docker'ı başlatın ve çalıştığını doğrulayın.
+
+**Kontrol önerileri:**
+
+-   Docker Desktop "Running" durumda olmalı
+
+-   Windows'ta Hyper-V/WSL uyumluluğu açık olmalı
+
+-   Port çakışması varsa docker-compose portu güncellenebilir
+
+* * * * *
 
 ### 🐘 3. PostgreSQL Docker ile Çalıştırma
-Kök dizinde bulunan `docker-compose.yml` dosyası PostgreSQL servisini ayağa kaldırır:
-```bash
-docker-compose up -d
-```
 
-Varsayılan bağlantı bilgileri:
-```
-Host: localhost
+Kök dizindeki `docker-compose.yml`, PostgreSQL servisini ayağa kaldırır:
+
+`docker-compose up -d`
+
+**Varsayılan bağlantı bilgileri**
+
+`Host: localhost
 Port: 5440
 User: gp1
 Password: gp1pass
-Database: gp1
-```
+Database: gp1`
 
-> ⚠️ Eğer `5432` portu başka servis tarafından kullanılıyorsa, `5440` olarak güncellenmiştir.
+> ⚠️ Eğer `5432` portu başka servis tarafından kullanılıyorsa, proje portu `5440` olarak ayarlanmıştır.
 
----
+**Doğrulama:**
+
+-   `docker ps` ile container'ı görebilirsiniz
+
+-   DataGrip/pgAdmin üzerinden yukarıdaki bilgilerle bağlanabilirsiniz
+
+* * * * *
 
 ### 💻 4. .NET 8 Kurulumu
-[.NET 8 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) sürümünü indirip kurun.  
-Kurulumu doğrulamak için:
-```bash
-dotnet --version
-```
 
----
+[.NET 8 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) sürümünü indirip kurun.
 
-## ⚙️ Projeyi Ayağa Kaldırma
+Doğrulama:
+
+`dotnet --version`
+
+* * * * *
+
+⚙️ Projeyi Ayağa Kaldırma
+-------------------------
 
 ### 🔸 Backend (API)
-```bash
-cd Gp1.ClubAutomation.Api
+
+`cd Gp1.ClubAutomation.Api
 dotnet restore
 dotnet ef database update
-dotnet run
-```
-> API varsayılan olarak: `https://localhost:5001` adresinde çalışır.
+dotnet run`
 
----
+-   API varsayılan: `https://localhost:5001`
+
+-   Swagger: `https://localhost:5001/swagger`
+
+> ℹ️ `dotnet ef database update` komutu migration'ları çalıştırıp şemayı oluşturur.
+
+**Sık karşılaşılan durumlar:**
+
+-   DB bağlantı hatası → Docker/Postgres çalışıyor mu kontrol edin
+
+-   Port hatası → 5440 açık mı kontrol edin
+
+-   Migration hatası → `dotnet ef migrations list` ile kontrol edilebilir
+
+* * * * *
 
 ### 🔸 Frontend (React)
-```bash
-cd Gp1.ClubAutomation.Web
-npm install #not: yüklü değil ise
-npm run dev
-```
-> Uygulama: `http://localhost:5173` adresinde çalışır.
 
----
+`cd Gp1.ClubAutomation.Web
+npm install
+npm run dev`
 
-## 🧱 Kod Rutinleri
+-   UI: `http://localhost:5173`
+
+**Notlar:**
+
+-   `npm install` ilk kurulumda zorunludur
+
+-   Node/NPM sürümü çok eskiyse Vite sorun çıkarabilir
+
+* * * * *
+
+🧠 AI Modülü (Python -- FastAPI)
+-------------------------------
+
+Bu proje `Gp1.ClubAutomation.AI` klasörü altında çalışır ve backend tarafından HTTP ile çağrılır.
+
+### ✅ AI Servisini Çalıştırma (Standart)
+
+`cd .\Gp1.ClubAutomation.AI
+python -m uvicorn app:app --host 127.0.0.1 --port 9000 --reload`
+
+> AI: `http://127.0.0.1:9000`
+
+* * * * *
+
+### 🧹 AI Ortamını Sıfırlama (Remove-Item yöntemi) ✅ Önerilen
+
+Bu yöntem herkes için birebir aynı çalışır (Python yolu kişiden kişiye değişse bile).
+
+`cd .\Gp1.ClubAutomation.AI
+Remove-Item -Recurse -Force .venv
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install --upgrade pip
+pip install -r requirements_to_ai.txt
+python -m uvicorn app:app --host 127.0.0.1 --port 9000 --reload`
+
+**Neden bu yöntem?**
+
+-   `.env` bağımlılığı olmadan herkes aynı kurulumla çalıştırabilir
+
+-   Bozulmuş/çakışan paketleri sıfırlar
+
+-   "works on my machine" problemlerini ciddi azaltır
+
+* * * * *
+
+### 🔁 Backend ↔ AI İletişimi
+
+-   FE: `api.ts` üzerinden `POST /api/ai/recommend`
+
+-   Backend: `AiController.cs`
+
+    -   DB'den kulüpleri çeker (`_db.Clubs`)
+
+    -   AI servis endpoint'ine `interests + clubs` gönderir
+
+    -   AI skorlarını alır
+
+    -   Skora göre sıralayıp FE'ye `recommendedClubs` döner
+
+-   AI (FastAPI):
+
+    -   `/recommend-clubs`
+
+    -   `interests` doğrular (pinned list)
+
+    -   `clubs` listesini skorlar
+
+    -   `scores: [{clubId, score}]` döner
+
+* * * * *
+
+🧪 Test Verisi
+--------------
+
+Repo'ya eklenen:
+
+-   `sql-test-datas-insert.rar`
+
+içinde test amaçlı **INSERT query**'leri bulunur.
+
+### Kullanım Önerisi
+
+1.  DB migration çalıştır:
+
+`dotnet ef database update`
+
+1.  DataGrip / pgAdmin ile DB'ye bağlan
+
+2.  `.rar` içindeki SQL scriptlerini çalıştır
+
+> ✅ Test data olmadan sistem çalışır ama:
+>
+> -   Home ekranı boş görünebilir
+>
+>
+> -   Announcements listesi boş olur
+>
+>
+> -   AI önerileri anlamsız/boş olabilir
+>
+>
+> -   Attendance count gibi sayılar 0 görünür
+
+* * * * *
+
+🧱 Kod Rutinleri
+----------------
 
 ### 🔹 Migration Oluşturma
-Yeni entity ve configuration'u eklendiğinde:
-```bash
-dotnet ef migrations add <MigrationName> -p Gp1.ClubAutomation.Infrastructure -s Gp1.ClubAutomation.Api
-dotnet ef database update -p Gp1.ClubAutomation.Infrastructure -s Gp1.ClubAutomation.Api
-```
 
----
+Yeni entity / configuration eklendiğinde:
+
+`dotnet ef migrations add <MigrationName> -p Gp1.ClubAutomation.Infrastructure -s Gp1.ClubAutomation.Api
+dotnet ef database update -p Gp1.ClubAutomation.Infrastructure -s Gp1.ClubAutomation.Api`
+
+**Açıklama:**
+
+-   `-p` migration'ın yazılacağı projeyi belirtir (Infrastructure)
+
+-   `-s` startup project'i belirtir (API)
+
+* * * * *
 
 ### 🔹 Endpoint Oluşturma (özet)
-- `Application` katmanında servis (service) oluşturulur.
-- `Api` katmanında ilgili `Controller` yazılır.
-- DTO ve mapping işlemleri `Application` katmanında tanımlanır.
-- Swagger üzerinden endpoint testleri yapılabilir (`/swagger` route). 
-- Testler için Postman'de ayrıca kullanılabilir.
 
----
-F
-## 🧩 Veritabanı Yapısı
-- Varsayılan şema: **club**
-- Ortak alanlar:  
-  `CreatedDate`, `UpdatedDate`, `CreatedBy`, `UpdatedBy`, `IsActive`, `IsDeleted`
-- Örnek tablolar:F
-    - `club.Clubs`
-    - `club.Events`
+Genel akış:
 
----
+1.  **Domain**: Entity/ValueObject tanımlanır (gerekliyse)
 
-## 👥 Yetkilendirme Yapısı
-- Her kullanıcı bir **üye (User)** veya **kulüp yöneticisi (Admin)** olabilir.
-- `IsAdmin` alanı kullanıcı rolünü belirler.
-- Super Admin bulunmaz — yalnızca belirli kullanıcılar yönetici statüsündedir.
+2.  **Application**:
 
----
+    -   DTO tanımlanır
 
-## 💡 Ek Notlar
-- `BaseEntity` sınıfı tüm tabloların temel alanlarını (CreatedDate, IsActive vb.) içerir.
-- PostgreSQL konteyner portu: `5440`
-- `.gitignore` tüm `bin/` ve `obj/` klasörlerini hariç tutar.
--  Local bilgisayar dizileri altına değil, `C:\Projects\Gp1.ClubAutomation` gibi bir dizine klonlanması tavsiye edilir.
+    -   Service/Interface yazılır
 
----
+    -   Mapping/Validation yapılır
 
-## 🧠 Katkı Rehberi
+3.  **Infrastructure**:
+
+    -   Repository/DbContext işlemleri
+
+    -   EF konfigurasyonları
+
+4.  **API**:
+
+    -   Controller endpoint tanımlanır
+
+    -   Request/Response dönüşleri yapılır
+
+**Test:**
+
+-   Swagger (`/swagger`)
+
+-   Postman
+
+* * * * *
+
+🧩 Veritabanı Yapısı
+--------------------
+
+-   Varsayılan şema: **club**
+
+-   Ortak alanlar:
+
+    -   `CreatedDate`, `UpdatedDate`, `CreatedBy`, `UpdatedBy`, `IsActive`, `IsDeleted`
+
+Örnek tablolar:
+
+-   `club.Clubs`
+
+-   `club.Events`
+
+-   `club.Memberships`
+
+-   `club.Announcements`
+
+-   `club.Attendances`
+
+-   `club.Users` (veya projedeki isimlendirmeye göre)
+
+> ℹ️ Projede "soft delete" mantığı bulunduğu için `IsDeleted=true` olan kayıtlar normal sorgularda görünmez.
+
+* * * * *
+
+👥 Yetkilendirme Yapısı
+-----------------------
+
+-   Her kullanıcı "User" olarak giriş yapar
+
+-   Kulüp içindeki rol, `Membership` üzerinden belirlenir:
+
+    -   `President` → duyuru yönetim hakkı
+
+-   Super Admin yoktur
+
+* * * * *
+
+💡 Ek Notlar
+------------
+
+### 🔹 React Query (Stabil Query Key)
+
+Projede bazı endpoint'ler (ör. announcements/memberships) **clubId listesine bağlı** olduğu için query key'lerin **stabil** olması önemlidir.
+
+-   `myClubIdsArr.join(",")` gibi sabit string key üretmek performans ve doğru cache için önemlidir.
+
+-   ClubId listesinin her render'da farklı referans üretmesi durumunda sürekli refetch olabilir.
+
+### 🔹 Profile Sayfası (Me Hydration)
+
+Profile sayfasında:
+
+-   `getMe()` ile server'dan güncel profil çekilir
+
+-   `updateUser(updated)` ile AuthContext + localStorage senkronize edilir
+
+-   "dirty" state ile kullanıcı edit yaparken server refresh'in form alanlarını ezmesi engellenir
+
+* * * * *
+
+🧠 Katkı Rehberi
+----------------
 
 ### 🔹 Ana Git Komutları
+
 Proje doğrudan `main` branch üzerinden yönetilir.
 
-1. Değişiklikleri commit etmeden önce güncel kodları çek:
-   ```bash
-   git pull
-   ```
+1.  Güncel kodları çek:
 
-2. Yeni dosya veya değişiklikleri ekle:
-   ```bash
-   git add .
-   ```
+    `git pull`
 
-3. Commit mesajını yaz:
-   ```bash
-   git commit -m "Açıklayıcı commit mesajı"
-   ```
+2.  Değişiklikleri ekle:
 
-4. Değişiklikleri `main` branch’e gönder:
-   ```bash
-   git push origin main
-   ```
+    `git add .`
 
-> 💡 Not: Eğer ilk kez push yapıyorsan `git push --set-upstream origin main` komutunu kullanabilirsin.
+3.  Commit:
 
----
+    `git commit -m "Açıklayıcı commit mesajı"`
+
+4.  Push:
+
+    `git push origin main`
+
+* * * * *
 
 ### 🔹 JetBrains Rider Üzerinden Git İşlemleri
-1. Sol side bar'da bulunan **Commit** sekmesini aç.
-4. Değişikliklerin yapıldığında gözükür. Commit mesajını yaz ve **Commit and Push** butonuna tıkla.
-5. Eğer önce güncelleme yapmak istersen: `Git → Pull` menüsünden güncel kodları çekebilirsin.
-6. Push sonrası değişiklikler otomatik olarak GitHub repo’suna yansır.
 
-> 💡 Not: Eğer değişikliklerde kırmızı alanlar var ise, üstüne sağ tık->Git->Add diyoruz ve gönderiyoruz değişikliklerimizi seçip.
->  Ayrıca değişikliklerin yapıldı ama pull alman gerekiyor ve Rollback (kodları eski haline döndürmek) istemiyorsan, 'git stash push' diyoruz ve o değişiklikler saklanıyor,
->  bunun üstüne 'git stash pop' diyerek değişiklik yapılmış dosyalarımızı, mevcut değişikliklere yansıtabiliriz.
+1.  **Commit** sekmesini aç
 
----
+2.  Değişiklikleri kontrol et
+
+3.  Commit mesajı yaz
+
+4.  **Commit and Push**
+
+Ek not:
+
+-   Değişiklik yaptın ama pull alman gerekiyorsa ve rollback istemiyorsan:
+
+    `git stash push
+    git pull
+    git stash pop`
+
+* * * * *
+
+✅ Proje Durumu
+--------------
+
+**✔ Proje tamamlandı.**\
+Repo, local ortamda DB + API + FE + AI çalışacak şekilde tasarlanmıştır.
