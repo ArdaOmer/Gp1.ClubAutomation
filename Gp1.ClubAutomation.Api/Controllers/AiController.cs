@@ -44,7 +44,7 @@ public class AiController : ControllerBase
         // 2) AI Service
         var client = _httpClientFactory.CreateClient("AiService");
 
-        // ✅ IMPORTANT: send clubs too
+        // IMPORTANT: send clubs too
         var aiPayload = new
         {
             interests = req.Interests,
